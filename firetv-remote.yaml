@@ -1,0 +1,39 @@
+esphome:
+  name: firetv-remote
+  platform: ESP32
+  board: esp32dev
+  includes:
+    - ble_hid_client.h
+  libraries:
+    - "BLEDevice.h"
+
+
+# Enable logging
+logger:
+
+# Enable Home Assistant API
+api:
+
+ota:
+  password: "9c98b1fff627cf71ce574b0ed14a9a40"
+
+wifi:
+  ssid: "Sievers-2"
+  password: "fiz8-keg1-x114"
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "Firetv-Remote Fallback Hotspot"
+    password: "yXKGCI1KWyUh"
+
+captive_portal:
+
+sensor:
+  - platform: custom
+    lambda: |-
+      auto my_sensor = new BleHidClientSensor();
+      App.register_component(my_sensor);
+      return {my_sensor};
+    sensors:
+      name: "BLE HID Client"
+

@@ -1,0 +1,14 @@
+{
+    "configurations": [
+        {
+            "name": "Linux",
+            "includePath": [
+                "${workspaceFolder}/**",
+                "/home/fsievers/.platformio/packages/framework-arduinoespressif32/**"
+            ],
+            "defines": [],
+            "compilerPath": "/usr/bin/gcc"
+        }
+    ],
+    "version": 4
+}
