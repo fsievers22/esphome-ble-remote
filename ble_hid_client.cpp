@@ -13,12 +13,12 @@ static void notifyCallback(BLERemoteCharacteristic* pBLERemoteCharacteristic, ui
    if(length > 0){
         uint8_t dataBit = pData[0];
         if(dataBit == 0){
-            ESP_LOGI(TAG,"Released key");
+            ESP_LOGD(TAG,"Released key");
             static_sensor->publish_state("0");
         }
         else if(KEYMAP.count(dataBit) > 0){
             std::string key = KEYMAP.at(dataBit);
-            ESP_LOGI(TAG,"Pressed key %s", key.c_str());
+            ESP_LOGD(TAG,"Pressed key %s", key.c_str());
             static_sensor->publish_state(key);
         }
         else{
@@ -30,16 +30,13 @@ static void notifyCallback(BLERemoteCharacteristic* pBLERemoteCharacteristic, ui
 MyAdvertisedDeviceCallbacks::MyAdvertisedDeviceCallbacks(BleHidClientSensor* pSensor) : sensor(pSensor){};
 
 void MyAdvertisedDeviceCallbacks::onResult(BLEAdvertisedDevice advertisedDevice) {
-    Serial.print("BLE Advertised Device found: ");
-    Serial.println(advertisedDevice.toString().c_str());
     // We have found a device, let us now see if it has the right address and contains the service we are looking for.
     if (advertisedDevice.getAddress().equals(sensor->getAddress()) && 
         advertisedDevice.haveServiceUUID() && 
         advertisedDevice.isAdvertisingService(sensor->getServiceUUID())) {
-        
+        ESP_LOGD(TAG,"Found device with proper address (%s) and service (%s)", sensor->getAddress().toString().c_str(), sensor->getServiceUUID().toString().c_str());
         //Stop scanning and start trying to connect to the server
         sensor->stopScan(true);
-
     }
 } 
 
@@ -47,27 +44,10 @@ float BleHidClientSensor::get_setup_priority() const {
     return setup_priority::LATE; 
 };
 
-/* static void BleHidClientSensor::notifyCallback(BLERemoteCharacteristic* pBLERemoteCharacteristic, uint8_t* pData, size_t length, bool isNotify){
-
-   if(length > 0){
-        uint8_t dataBit = pData[0];
-        if(dataBit == 0){
-            ESP_LOGI(TAG,"Released key");
-        }
-        else if(KEYMAP.count(dataBit) > 0){
-            std::string key = KEYMAP.at(dataBit);
-            ESP_LOGI(TAG,"Pressed key %s", key.c_str());
-        }
-        else{
-            ESP_LOGW(TAG,"No key defined for databits %x", dataBit);
-        }
-   }
-}; */
-
 void BleHidClientSensor::setupNotify(BLERemoteCharacteristic* characterisitc){
     if(characterisitc->canNotify()){
         characterisitc->registerForNotify(notifyCallback);
-        ESP_LOGI(TAG,"Setup Notify for characteristic %s with handle %x", characterisitc->getUUID().toString().c_str(), characterisitc->getHandle());
+        ESP_LOGD(TAG,"Setup Notify for characteristic %s with handle %x", characterisitc->getUUID().toString().c_str(), characterisitc->getHandle());
     }
 };
 
@@ -87,15 +67,13 @@ BLEAddress BleHidClientSensor::getAddress(){
 }
 
 bool BleHidClientSensor::connect() {
-    ESP_LOGI("ble_hid_client","Forming a connection to %s", bleAddress.toString().c_str());
-    doConnect = false;
-
+    ESP_LOGD(TAG,"Forming a connection to %s", bleAddress.toString().c_str());
     if(!pClient->connect(bleAddress)) {  
         //Connection failed
-        doScan = true;
+        ESP_LOGD(TAG,"Connection failed");
         return false;
     }
-    ESP_LOGI("ble_hid_client"," - Connected to server");
+    ESP_LOGD(TAG," - Connected to server");
 
     // Obtain a reference to the service we are after in the remote BLE server.
     BLERemoteService* pRemoteService = pClient->getService(serviceUUID);
@@ -107,7 +85,6 @@ bool BleHidClientSensor::connect() {
         uint16_t handle = it->first;
         BLERemoteCharacteristic* characteristic = it->second;
         if(characteristic->getUUID().equals(charUUID)){
-            ESP_LOGI(TAG, "\t%x", handle);
             setupNotify(characteristic);
         }
     }
@@ -117,11 +94,7 @@ bool BleHidClientSensor::connect() {
 void BleHidClientSensor::stopScan(bool pConnect){
     pBLEScan->stop();
     doScan = false;
-    doConnect = pConnect;
-}
-
-void BleHidClientSensor::startScan(){
-    doScan = true;
+    doConnect = true;
 }
 
 void BleHidClientSensor::scan(){
@@ -129,16 +102,14 @@ void BleHidClientSensor::scan(){
 }
 
 void BleHidClientSensor::setup() {
-    ESP_LOGI(TAG,"Starting Arduino BLE Client application...");
+    ESP_LOGD(TAG,"Starting Arduino BLE Client application...");
     static_sensor = this;
     myClientCallback = new MyClientCallback();
     BLESecurity* pSecurity = new BLESecurity();
     pSecurity->setAuthenticationMode(ESP_LE_AUTH_REQ_SC_BOND);
     pSecurity->setRespEncryptionKey(ESP_BLE_ENC_KEY_MASK | ESP_BLE_ID_KEY_MASK);
-    //BLEDevice::m_appId = (uint16_t) 0x1;
     BLEDevice::init("ESP32Test");
     BLEDevice::setEncryptionLevel(ESP_BLE_SEC_ENCRYPT);
-    //BLEDevice::setSecurityCallbacks(new MySecurity());
     pClient = BLEDevice::createClient();
     pClient->setClientCallbacks(myClientCallback);
 
@@ -152,11 +123,13 @@ void BleHidClientSensor::setup() {
 void BleHidClientSensor::update() {
     if(doScan){
         scan();
-    }
-    else if(doConnect){
-        connect();
-    }
-    else if(!pClient->isConnected()){
+    }else if(doConnect){
+        if(!connect()){
+            doScan = true;
+        }else{
+            doConnect = false;
+        }
+    }else if(!pClient->isConnected()){
         doScan = true;
     }
 };

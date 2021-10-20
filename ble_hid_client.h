@@ -35,7 +35,6 @@ class BleHidClientSensor : public PollingComponent, public text_sensor::TextSens
         BLEAddress bleAddress;
         BLEUUID serviceUUID;
         BLEUUID charUUID;
-
         bool doConnect;
         bool doScan;
 
@@ -54,8 +53,6 @@ class BleHidClientSensor : public PollingComponent, public text_sensor::TextSens
 
         void stopScan(bool pConnect);
 
-        void startScan();
-
         BLEUUID getServiceUUID();
 
         void setup() override;
@@ -72,42 +69,3 @@ class MyAdvertisedDeviceCallbacks: public BLEAdvertisedDeviceCallbacks {
         MyAdvertisedDeviceCallbacks(BleHidClientSensor* pSensor);
         void onResult(BLEAdvertisedDevice advertisedDevice);
 };
-
-
-//static void notifyCallback(BLERemoteCharacteristic* pBLERemoteCharacteristic, uint8_t* pData, size_t length, bool isNotify);
-
-/* class MySecurity : public BLESecurityCallbacks {
-    uint32_t onPassKeyRequest()
-    {
-        ESP_LOGI(TAG, "PassKeyRequest");
-        return 123456;
-    }
-
-    void onPassKeyNotify(uint32_t pass_key)
-    {
-        ESP_LOGI(TAG, "On passkey Notify number:%d", pass_key);
-    }
-
-    bool onSecurityRequest()
-    {
-        ESP_LOGI(TAG, "On Security Request");
-        return true;
-    }
-
-    void onAuthenticationComplete(esp_ble_auth_cmpl_t cmpl)
-    {
-        ESP_LOGI(TAG, "Starting BLE work!");
-        if(cmpl.success)
-        {
-            uint16_t length;
-            esp_ble_gap_get_whitelist_size(&length);
-            ESP_LOGD(TAG, "size: %d", length);
-        }
-    }
-
-    bool onConfirmPIN(unsigned int v)
-    {
-        ESP_LOGI(TAG, "On Confirmed Pin Request %d", v);
-        return true;
-    }
-}; */
