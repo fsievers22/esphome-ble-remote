@@ -1,151 +1,113 @@
 #include "esphome.h"
 #include "BLEDevice.h"
-#define DEBUG
-#define LOG_TAG "ble_hid_client.h"
-// The remote service we wish to connect to.
-static BLEUUID serviceUUID((uint16_t) 0x1812);
-static BLEAddress bleAddress("14:0A:C5:D0:D4:A2");
-// The characteristic of the remote service we are interested in.
-static BLEUUID charUUID((uint16_t) 0x2a4d);
 
-namespace esphome{
+using namespace esphome;
+const static char* TAG = "ble_hid_client.h";
 
-    class MyClientCallback : public BLEClientCallbacks {
-        private:
-            bool connected = false;
-        public:
-            void onConnect(BLEClient* pclient) {
-                connected = true;
-            };
+//The address of the ble server we want to connect to
+const static char* SERVER_ADDRESS = "14:0A:C5:D0:D4:A2";
 
-            void onDisconnect(BLEClient* pclient) {
-                connected = false;
-                ESP_LOGI("ble_hid_client","onDisconnect");
-            };
 
-            bool isConnected(){
-                return connected;
-            };
-    };
+// The ble service we are interested in (HID)
+const static uint16_t SERVICE_UUID = 0x1812;
+// The ble characteristic we are interested in. (Report)
+const static uint16_t CHARACTER_UUID = 0x2a4d;
 
-    static void notifyCallback(BLERemoteCharacteristic* pBLERemoteCharacteristic, uint8_t* pData, size_t length, bool isNotify){
-        #ifdef DEBUG
-            ESP_LOGI("ble_hid_client","Notify callback for characteristic ");
-            ESP_LOGI("ble_hid_client",pBLERemoteCharacteristic->getUUID().toString().c_str());
-            ESP_LOGI("ble_hid_client"," of data length ");
-            //ESP_LOGI("vle_hid_client",length);
-            ESP_LOGI("ble_hid_client","data: ");
-            for (size_t i = 0; i < length; i++)
-            {
-                ESP_LOGI("ble_hid_client","%2x", pData[i]);
-            }
-        #endif
-    };
+//Key map for amazon firetv stick remote with volume buttons
+static std::map<uint8_t, std::string> KEYMAP {{0x52,"UP"},{0x51,"DOWN"},{0x50,"LEFT"},{0x4f,"RIGHT"},
+    {0x21,"VOICE"},{0x66,"POWER"},{0xf1,"BACK"},{0x23,"HOME"},
+    {0x40,"MENU"},{0xb4,"REWIND"},{0xcd,"PLAY_PAUSE"},{0xb3,"FAST_FORWARD"},
+    {0xe9,"VOL_UP"},{0xea,"VOL_DOWN"},{0xe2,"MUTE"}, {0x58,"ENTER"}}; 
 
-    class MySecurity : public BLESecurityCallbacks {
-        uint32_t onPassKeyRequest()
+class MyClientCallback : public BLEClientCallbacks {
+    public:
+        void onConnect(BLEClient* pclient);
+
+        void onDisconnect(BLEClient* pclient);
+};
+
+class BleHidClientSensor : public PollingComponent, public text_sensor::TextSensor{
+    private:
+        MyClientCallback* myClientCallback;
+        BLERemoteCharacteristic* pRemoteCharacteristic;
+        BLEClient* pClient;
+        BLEScan* pBLEScan;
+        BLEAddress bleAddress;
+        BLEUUID serviceUUID;
+        BLEUUID charUUID;
+
+        bool doConnect;
+        bool doScan;
+
+    public:
+        BleHidClientSensor();
+
+        float get_setup_priority() const override; 
+
+        void setupNotify(BLERemoteCharacteristic* characterisitc);
+
+        bool connect();
+
+        void scan();
+
+        BLEAddress getAddress();
+
+        void stopScan(bool pConnect);
+
+        void startScan();
+
+        BLEUUID getServiceUUID();
+
+        void setup() override;
+
+        void update() override;
+};
+
+static BleHidClientSensor* static_sensor;
+
+class MyAdvertisedDeviceCallbacks: public BLEAdvertisedDeviceCallbacks {
+    private:
+        BleHidClientSensor* sensor;
+    public:
+        MyAdvertisedDeviceCallbacks(BleHidClientSensor* pSensor);
+        void onResult(BLEAdvertisedDevice advertisedDevice);
+};
+
+
+//static void notifyCallback(BLERemoteCharacteristic* pBLERemoteCharacteristic, uint8_t* pData, size_t length, bool isNotify);
+
+/* class MySecurity : public BLESecurityCallbacks {
+    uint32_t onPassKeyRequest()
+    {
+        ESP_LOGI(TAG, "PassKeyRequest");
+        return 123456;
+    }
+
+    void onPassKeyNotify(uint32_t pass_key)
+    {
+        ESP_LOGI(TAG, "On passkey Notify number:%d", pass_key);
+    }
+
+    bool onSecurityRequest()
+    {
+        ESP_LOGI(TAG, "On Security Request");
+        return true;
+    }
+
+    void onAuthenticationComplete(esp_ble_auth_cmpl_t cmpl)
+    {
+        ESP_LOGI(TAG, "Starting BLE work!");
+        if(cmpl.success)
         {
-            ESP_LOGI(LOG_TAG, "PassKeyRequest");
-            return 123456;
+            uint16_t length;
+            esp_ble_gap_get_whitelist_size(&length);
+            ESP_LOGD(TAG, "size: %d", length);
         }
+    }
 
-        void onPassKeyNotify(uint32_t pass_key)
-        {
-            ESP_LOGI(LOG_TAG, "On passkey Notify number:%d", pass_key);
-        }
-
-        bool onSecurityRequest()
-        {
-            ESP_LOGI(LOG_TAG, "On Security Request");
-            return true;
-        }
-
-        void onAuthenticationComplete(esp_ble_auth_cmpl_t cmpl)
-        {
-            ESP_LOGI(LOG_TAG, "Starting BLE work!");
-            if(cmpl.success)
-            {
-                uint16_t length;
-                esp_ble_gap_get_whitelist_size(&length);
-                ESP_LOGD(LOG_TAG, "size: %d", length);
-            }
-        }
-
-        bool onConfirmPIN(unsigned int v)
-        {
-            ESP_LOGI(LOG_TAG, "On Confirmed Pin Request %d", v);
-            return true;
-        }
-    };
-
-    class BleHidClientSensor : public esphome::Component, public esphome::sensor::Sensor {
-        private:
-            MyClientCallback* myClientCallback = new MyClientCallback();
-            BLERemoteCharacteristic* pRemoteCharacteristic;
-            BLEClient* pClient;
-
-            long last_log = 0;
-            long last_scan = 0;
-        public:
-            float get_setup_priority() const override { return esphome::setup_priority::LATE; }
-            void setupNotify(BLERemoteCharacteristic* characterisitc){
-                if(characterisitc->canNotify()){
-                    characterisitc->registerForNotify(notifyCallback);
-                    ESP_LOGI(LOG_TAG,"Setup Notify for characteristic %s with handle %x", characterisitc->getUUID().toString().c_str(), characterisitc->getHandle());
-                }
-            }
-            bool connectToServer() {
-                ESP_LOGI("ble_hid_client","Forming a connection to %s", bleAddress.toString().c_str());
-                
-        
-                if(!pClient->connect(bleAddress)) {  
-                    //Connection failed
-                    return false;
-                }
-                ESP_LOGI("ble_hid_client"," - Connected to server");
-
-                // Obtain a reference to the service we are after in the remote BLE server.
-                BLERemoteService* pRemoteService = pClient->getService(serviceUUID);
-
-
-                std::map<uint16_t, BLERemoteCharacteristic*>* characteristics =pRemoteService->getCharacteristicsByHandle();
-                std::map<uint16_t, BLERemoteCharacteristic*>::iterator it;
-                ESP_LOGI(LOG_TAG, "Handles for Characterisitc %s: ", charUUID.toString().c_str());
-                for (it = characteristics->begin(); it != characteristics->end(); it++){
-                    uint16_t handle = it->first;
-                    BLERemoteCharacteristic* characteristic = it->second;
-                    if(characteristic->getUUID().equals(charUUID)){
-                        ESP_LOGI(LOG_TAG, "\t%x", handle);
-                        setupNotify(characteristic);
-                    }
-                }
-                return true;
-            };
-
-            void setup() override {
-                ESP_LOGI(LOG_TAG,"Starting Arduino BLE Client application...");
-                BLESecurity* pSecurity = new BLESecurity();
-                pSecurity->setAuthenticationMode(ESP_LE_AUTH_REQ_SC_BOND);
-                pSecurity->setRespEncryptionKey(ESP_BLE_ENC_KEY_MASK | ESP_BLE_ID_KEY_MASK);
-                BLEDevice::m_appId = (uint16_t) 0x1;
-
-                BLEDevice::init("ESP32Test");
-                BLEDevice::setEncryptionLevel(ESP_BLE_SEC_ENCRYPT);
-                BLEDevice::setSecurityCallbacks(new MySecurity());
-                ESP_LOGI(LOG_TAG, "App ID: %x", BLEDevice::m_appId);
-                pClient = BLEDevice::createClient();
-                ESP_LOGI("ble_hid_client"," - Created client");
-
-                pClient->setClientCallbacks(myClientCallback);
-            };
-
-            void loop() override {
-                if(!myClientCallback->isConnected()){
-                    if(!connectToServer()){
-                        ESP_LOGI("ble_hid_client", "Connection failed");
-                    }
-                }
-                sleep(1);
-            };
-    };
-}
+    bool onConfirmPIN(unsigned int v)
+    {
+        ESP_LOGI(TAG, "On Confirmed Pin Request %d", v);
+        return true;
+    }
+}; */

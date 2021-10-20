@@ -4,6 +4,7 @@ esphome:
   board: esp32dev
   includes:
     - ble_hid_client.h
+    - ble_hid_client.cpp
   libraries:
     - "BLEDevice.h"
 
@@ -28,12 +29,12 @@ wifi:
 
 captive_portal:
 
-sensor:
+text_sensor:
   - platform: custom
     lambda: |-
       auto my_sensor = new BleHidClientSensor();
       App.register_component(my_sensor);
       return {my_sensor};
-    sensors:
-      name: "BLE HID Client"
 
+    text_sensors:
+      name: "BLE HID Client"
