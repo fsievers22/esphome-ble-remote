@@ -11,22 +11,21 @@ esphome:
 
 # Enable logging
 logger:
-  level: DEBUG
+  level: INFO
 
 # Enable Home Assistant API
 api:
 
 ota:
-  password: "9c98b1fff627cf71ce574b0ed14a9a40"
+  password: !secret ota_password
 
 wifi:
-  ssid: "Sievers-2"
-  password: "fiz8-keg1-x114"
-
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
   # Enable fallback hotspot (captive portal) in case wifi connection fails
   ap:
-    ssid: "Firetv-Remote Fallback Hotspot"
-    password: "yXKGCI1KWyUh"
+    ssid: !secret wifi_fallback_ssid
+    password: !secret wifi_fallback_password
 
 captive_portal:
 
