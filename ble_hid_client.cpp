@@ -87,15 +87,17 @@ bool BleHidClientComponent::connect() {
     }
     ESP_LOGD(TAG," - Connected to server");
 
-    // Obtain a reference to the service we are after in the remote BLE server.
     BLERemoteService* pRemoteService = pClient->getService(serviceUUID);
 
-
+    //get all characteristics of hid service by handle, 
+    //because else you only get one handle for the characteristic 
+    //but there are probably more than one handle with same characteristic
     std::map<uint16_t, BLERemoteCharacteristic*>* characteristics =pRemoteService->getCharacteristicsByHandle();
     std::map<uint16_t, BLERemoteCharacteristic*>::iterator it;
     for (it = characteristics->begin(); it != characteristics->end(); it++){
         uint16_t handle = it->first;
         BLERemoteCharacteristic* characteristic = it->second;
+        //if correct characteristic uuid setup notification
         if(characteristic->getUUID().equals(charUUID)){
             setupNotify(characteristic);
         }
@@ -116,11 +118,15 @@ void BleHidClientComponent::scan(){
 void BleHidClientComponent::setup() {
     ESP_LOGD(TAG,"Starting Arduino BLE Client application...");
     myClientCallback = new MyClientCallback();
+
+    //Setup security important for reconnection of remote
     BLESecurity* pSecurity = new BLESecurity();
     pSecurity->setAuthenticationMode(ESP_LE_AUTH_REQ_SC_BOND);
     pSecurity->setRespEncryptionKey(ESP_BLE_ENC_KEY_MASK | ESP_BLE_ID_KEY_MASK);
     BLEDevice::init("ESP32Test");
     BLEDevice::setEncryptionLevel(ESP_BLE_SEC_ENCRYPT);
+
+
     pClient = BLEDevice::createClient();
     pClient->setClientCallbacks(myClientCallback);
 
