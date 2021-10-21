@@ -1,6 +1,11 @@
 #include "esphome.h"
 #include "BLEDevice.h"
 
+#define get_ble_hid_component(constructor) static_cast<BleHidClientComponent *> \
+  (const_cast<custom_component::CustomComponentConstructor *>(&constructor)->get_component(0))
+#define ble_hid_keycode(id) get_ble_hid_component(id)->get_keycode_sensor()
+#define ble_hid_keypress(id) get_ble_hid_component(id)->get_keypress_sensor()
+
 using namespace esphome;
 const static char* TAG = "ble_hid_client.h";
 
@@ -26,8 +31,10 @@ class MyClientCallback : public BLEClientCallbacks {
         void onDisconnect(BLEClient* pclient);
 };
 
-class BleHidClientSensor : public PollingComponent, public text_sensor::TextSensor{
+class BleHidClientComponent : public PollingComponent{
     private:
+        text_sensor::TextSensor* keycodeSensor;
+        binary_sensor::BinarySensor* keypressSensor;
         MyClientCallback* myClientCallback;
         BLERemoteCharacteristic* pRemoteCharacteristic;
         BLEClient* pClient;
@@ -39,7 +46,7 @@ class BleHidClientSensor : public PollingComponent, public text_sensor::TextSens
         bool doScan;
 
     public:
-        BleHidClientSensor();
+        BleHidClientComponent();
 
         float get_setup_priority() const override; 
 
@@ -48,6 +55,9 @@ class BleHidClientSensor : public PollingComponent, public text_sensor::TextSens
         bool connect();
 
         void scan();
+
+        text_sensor::TextSensor *get_keycode_sensor();
+        binary_sensor::BinarySensor *get_keypress_sensor();
 
         BLEAddress getAddress();
 
@@ -60,12 +70,11 @@ class BleHidClientSensor : public PollingComponent, public text_sensor::TextSens
         void update() override;
 };
 
-static BleHidClientSensor* static_sensor;
-
+static BleHidClientComponent* staticComponent;
 class MyAdvertisedDeviceCallbacks: public BLEAdvertisedDeviceCallbacks {
     private:
-        BleHidClientSensor* sensor;
+        BleHidClientComponent* component;
     public:
-        MyAdvertisedDeviceCallbacks(BleHidClientSensor* pSensor);
+        MyAdvertisedDeviceCallbacks(BleHidClientComponent* pComponent);
         void onResult(BLEAdvertisedDevice advertisedDevice);
 };

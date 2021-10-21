@@ -11,7 +11,7 @@ esphome:
 
 # Enable logging
 logger:
-  level: INFO
+  level: DEBUG
 
 # Enable Home Assistant API
 api:
@@ -29,12 +29,23 @@ wifi:
 
 captive_portal:
 
+custom_component:
+  - id: ble_hid
+    lambda: |-
+      auto bleComponent = new BleHidClientComponent();
+      App.register_component(bleComponent);
+      return {bleComponent};
+
 text_sensor:
   - platform: custom
     lambda: |-
-      auto my_sensor = new BleHidClientSensor();
-      App.register_component(my_sensor);
-      return {my_sensor};
-
+      return {ble_hid_keycode(ble_hid)};
     text_sensors:
-      name: "BLE HID Client"
+      - name: remote_keycode
+
+binary_sensor:
+  - platform: custom
+    lambda: |-
+      return {ble_hid_keypress(ble_hid)};
+    binary_sensors:
+      - name: remote_keypress
