@@ -1,13 +1,15 @@
+esp32:
+  board: nodemcu-32s
+  framework:
+    type: esp-idf
+    sdkconfig_options:
+      CONFIG_BT_ENABLED: y
+
 esphome:
   name: firetv-remote
-  platform: ESP32
-  board: esp32dev
   includes:
     - ble_hid_client.h
     - ble_hid_client.cpp
-  libraries:
-    - "BLEDevice.h"
-
 
 # Enable logging
 logger:
@@ -26,8 +28,6 @@ wifi:
   ap:
     ssid: !secret wifi_fallback_ssid
     password: !secret wifi_fallback_password
-
-captive_portal:
 
 custom_component:
   - id: ble_hid
