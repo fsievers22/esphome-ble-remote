@@ -29,23 +29,11 @@ wifi:
     ssid: !secret wifi_fallback_ssid
     password: !secret wifi_fallback_password
 
-custom_component:
-  - id: ble_hid
+sensor:
+  - platform: custom
     lambda: |-
       auto bleComponent = new BleHidClientComponent();
       App.register_component(bleComponent);
       return {bleComponent};
-
-text_sensor:
-  - platform: custom
-    lambda: |-
-      return {ble_hid_keycode(ble_hid)};
-    text_sensors:
-      - name: remote_keycode
-
-binary_sensor:
-  - platform: custom
-    lambda: |-
-      return {ble_hid_keypress(ble_hid)};
-    binary_sensors:
-      - name: remote_keypress
+    sensors:
+      name: "Test"
