@@ -13,7 +13,7 @@ esphome:
 
 # Enable logging
 logger:
-  level: DEBUG
+  level: INFO
 
 # Enable Home Assistant API
 api:
@@ -29,11 +29,23 @@ wifi:
     ssid: !secret wifi_fallback_ssid
     password: !secret wifi_fallback_password
 
-sensor:
+custom_component:
+  - id: ble_hid
+    lambda: |-
+      auto ble_component = new BleHidClientComponent();
+      App.register_component(ble_component);
+      return {ble_component};
+
+text_sensor:
   - platform: custom
     lambda: |-
-      auto bleComponent = new BleHidClientComponent();
-      App.register_component(bleComponent);
-      return {bleComponent};
-    sensors:
-      name: "Test"
+      return {ble_hid_keycode(ble_hid)};
+    text_sensors:
+      - name: "KeycodeSensor"
+
+binary_sensor:
+  - platform: custom
+    lambda: |-
+      return {ble_hid_keypress(ble_hid)};
+    binary_sensors:
+      - name: "KeypressSensor"

@@ -10,8 +10,6 @@
 #include "esp_log.h"
 
 namespace esphome{
-
-    #define BLE_ADDR_LENGTH 6
     
 
     #define BLE_TAG               "ble_hid_client.cpp"
@@ -20,6 +18,7 @@ namespace esphome{
 
     static esp_gattc_char_elem_t *char_elem_result   = NULL;
     static esp_gattc_descr_elem_t *descr_elem_result = NULL;
+    static esp_bd_addr_t ble_remote_address = {0x14,0x0A,0xC5,0xD0,0xD4,0xA2};
 
     ///Declare static functions
     static void esp_gap_cb(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *param);
@@ -37,14 +36,25 @@ namespace esphome{
         .uuid = {.uuid16 = REMOTE_NOTIFY_UUID,},
     };
 
+    //Key map for amazon firetv stick remote with volume buttons
+    static std::map<uint8_t, std::string> KEYMAP {{0x52,"UP"},{0x51,"DOWN"},{0x50,"LEFT"},{0x4f,"RIGHT"},
+                                                {0x21,"VOICE"},{0x66,"POWER"},{0xf1,"BACK"},{0x23,"HOME"},
+                                                {0x40,"MENU"},{0xb4,"REWIND"},{0xcd,"PLAY_PAUSE"},{0xb3,"FAST_FORWARD"},
+                                                {0xe9,"VOL_UP"},{0xea,"VOL_DOWN"},{0xe2,"MUTE"}, {0x58,"ENTER"}}; 
+
+    static bool is_scanning = false;
+    static bool scan_setup_complete = false;
     static bool connect = false;
     static bool get_service = false;
     static const char remote_device_name[] = "ESP_BLE_SECURITY";
 
+    static text_sensor::TextSensor* keycodeSensor = new text_sensor::TextSensor();;
+    static binary_sensor::BinarySensor* keypressSensor = new binary_sensor::BinarySensor();
+
     static esp_ble_scan_params_t ble_scan_params = {
         .scan_type              = BLE_SCAN_TYPE_ACTIVE,
         .own_addr_type          = BLE_ADDR_TYPE_RANDOM,
-        .scan_filter_policy     = BLE_SCAN_FILTER_ALLOW_ALL,
+        .scan_filter_policy     = BLE_SCAN_FILTER_ALLOW_ONLY_WLST,
         .scan_interval          = 0x50,
         .scan_window            = 0x20,
         .scan_duplicate         = BLE_SCAN_DUPLICATE_ENABLE
@@ -62,7 +72,6 @@ namespace esphome{
         uint16_t conn_id;
         uint16_t service_start_handle;
         uint16_t service_end_handle;
-        uint16_t notify_char_handle;
         esp_bd_addr_t remote_bda;
     };
 
@@ -73,6 +82,11 @@ namespace esphome{
             .gattc_if = ESP_GATT_IF_NONE,       /* Not get the gatt_if, so initial is ESP_GATT_IF_NONE */
         },
     };
+
+    static char *ble_addr_to_str(char *addr_buffer, uint8_t *bytes){
+        sprintf(addr_buffer,"%02x:%02x:%02x:%02x:%02x:%02x", bytes[0],bytes[1],bytes[2],bytes[3],bytes[4],bytes[5]);
+        return addr_buffer;
+    }
 
     static const char *esp_key_type_to_str(esp_ble_key_type_t key_type)
     {
@@ -166,8 +180,8 @@ namespace esphome{
                 ESP_LOGD(BLE_TAG, "open success");
                 gl_profile_tab[PROFILE_A_APP_ID].conn_id = p_data->open.conn_id;
                 memcpy(gl_profile_tab[PROFILE_A_APP_ID].remote_bda, p_data->open.remote_bda, sizeof(esp_bd_addr_t));
-                ESP_LOGD(BLE_TAG, "REMOTE BDA:");
-                esp_log_buffer_hex(BLE_TAG, gl_profile_tab[PROFILE_A_APP_ID].remote_bda, sizeof(esp_bd_addr_t));
+                char addr_buffer[18];
+                ESP_LOGD(BLE_TAG, "REMOTE BDA: %s", ble_addr_to_str(addr_buffer, gl_profile_tab[PROFILE_A_APP_ID].remote_bda));
                 esp_err_t mtu_ret = esp_ble_gattc_send_mtu_req(gattc_if, p_data->open.conn_id);
                 if (mtu_ret){
                     ESP_LOGE(BLE_TAG, "config MTU error, error code = %x", mtu_ret);
@@ -219,39 +233,39 @@ namespace esphome{
                         ESP_LOGE(BLE_TAG, "esp_ble_gattc_get_attr_count error, %d", __LINE__);
                     }
                     if (count > 0){
-                        //char_elem_result = new esp_gattc_char_elem_t[count];
-                        //char_elem_result = (esp_gattc_char_elem_t *)malloc(sizeof(esp_gattc_char_elem_t) * count);
-                        esp_gattc_char_elem_t result;
-                        uint16_t offset = 0;
-                        while (true) {
-                            uint16_t count = 10;  // this value is used as in parameter that allows to search max 10 chars with the same uuid
-                            esp_gatt_status_t status = ::esp_ble_gattc_get_all_char(
-                                gattc_if,
-                                gl_profile_tab[PROFILE_A_APP_ID].conn_id,
-                                gl_profile_tab[PROFILE_A_APP_ID].service_start_handle,
-                                gl_profile_tab[PROFILE_A_APP_ID].service_end_handle,
-                                &result,
-                                &count,
-                                offset
-                            );
-
-                            if (status == ESP_GATT_INVALID_OFFSET) {   // We have reached the end of the entries.
-                                break;
+                        esp_gattc_char_elem_t char_elem_result[count];
+                        if (!char_elem_result){
+                            ESP_LOGE(BLE_TAG, "gattc no mem");
+                        }else{
+                            ret_status = esp_ble_gattc_get_char_by_uuid( gattc_if,
+                                                                    gl_profile_tab[PROFILE_A_APP_ID].conn_id,
+                                                                    gl_profile_tab[PROFILE_A_APP_ID].service_start_handle,
+                                                                    gl_profile_tab[PROFILE_A_APP_ID].service_end_handle,
+                                                                    remote_filter_char_uuid,
+                                                                    char_elem_result,
+                                                                    &count);
+                            if (ret_status != ESP_GATT_OK){
+                                ESP_LOGE(BLE_TAG, "esp_ble_gattc_get_char_by_uuid error");
+                            }
+                            if(count>0){
+                                ESP_LOGD(BLE_TAG,"Found handles for characteristic %04x:",remote_filter_char_uuid.uuid.uuid16);
+                            }
+                            for(uint8_t i=0; i < count; i++){
+                                if(char_elem_result[i].properties & ESP_GATT_CHAR_PROP_BIT_NOTIFY){
+                                    ESP_LOGD(BLE_TAG,"\t%02x",char_elem_result[i].char_handle);
+                                    esp_ble_gattc_register_for_notify (gattc_if, gl_profile_tab[PROFILE_A_APP_ID].remote_bda, char_elem_result[i].char_handle);
+                                }
                             }
 
-                            if (status != ESP_GATT_OK) {   // If we got an error, end.
-                                ESP_LOGE(BLE_TAG, "esp_ble_gattc_get_attr_count error, %d", __LINE__);
-                                break;
-                            }
-
-                            if (count == 0) {   // If we failed to get any new records, end.
-                                break;
-                            }
-
-                            ESP_LOGD(BLE_TAG, "Found a characteristic: Handle: %d, UUID: %x", result.char_handle, result.uuid.uuid.uuid16);
-                            offset++;
+                            /*  Every service have only one char in our 'ESP_GATTS_DEMO' demo, so we used first 'char_elem_result' */
+                            /* if (count > 0 && (char_elem_result[0].properties & ESP_GATT_CHAR_PROP_BIT_NOTIFY)){
+                                gl_profile_tab[PROFILE_A_APP_ID].char_handle = char_elem_result[0].char_handle;
+                                esp_ble_gattc_register_for_notify (gattc_if, gl_profile_tab[PROFILE_A_APP_ID].remote_bda, char_elem_result[0].char_handle);
+                            } */
                         }
-                        delete[] char_elem_result;
+                        /* free char_elem_result */
+                    }else{
+                        ESP_LOGE(BLE_TAG, "no char found");
                     }
                 }
 
@@ -314,8 +328,23 @@ namespace esphome{
                 break;
             }
             case ESP_GATTC_NOTIFY_EVT:{
-                ESP_LOGD(BLE_TAG, "ESP_GATTC_NOTIFY_EVT, receive notify value:");
-                esp_log_buffer_hex(BLE_TAG, p_data->notify.value, p_data->notify.value_len);
+                ESP_LOGD(BLE_TAG, "ESP_GATTC_NOTIFY_EVT");
+                if(p_data->notify.value_len > 0){
+                    uint8_t dataBit = p_data->notify.value[0];
+                    if(dataBit == 0){
+                        ESP_LOGI(BLE_TAG,"Released key");
+                        keypressSensor->publish_state(false);
+                    }
+                    else if(KEYMAP.count(dataBit) > 0){
+                        std::string key = KEYMAP.at(dataBit);
+                        ESP_LOGI(BLE_TAG,"Pressed key %s", key.c_str());
+                        keycodeSensor->publish_state(key);
+                        keypressSensor->publish_state(true);
+                    }
+                    else{
+                        ESP_LOGW(BLE_TAG,"No key defined for databits %x", dataBit);
+                    }
+                }
                 break;
             }
             case ESP_GATTC_WRITE_DESCR_EVT:{
@@ -330,7 +359,8 @@ namespace esphome{
                 esp_bd_addr_t bda;
                 memcpy(bda, p_data->srvc_chg.remote_bda, sizeof(esp_bd_addr_t));
                 ESP_LOGD(BLE_TAG, "ESP_GATTC_SRVC_CHG_EVT, bd_addr:");
-                esp_log_buffer_hex(BLE_TAG, bda, sizeof(esp_bd_addr_t));
+                char addr_buffer[18];
+                ESP_LOGD(BLE_TAG,"%s",ble_addr_to_str(addr_buffer, bda));
                 break;
             }
             case ESP_GATTC_WRITE_CHAR_EVT:{
@@ -346,19 +376,11 @@ namespace esphome{
                 ESP_LOGI(BLE_TAG,"Disconnected from BLE-Device");
                 connect = false;
                 get_service = false;
-                uint32_t duration = 300;
-                ESP_LOGI(BLE_TAG, "Start scanning for HID-BLE-Devices for %d seconds", duration);
-                esp_ble_gap_start_scanning(duration);
                 break;
             }
             default:
                 break;
         }
-    }
-
-    static char *ble_addr_to_str(char *addr_buffer, uint8_t *bytes){
-        sprintf(addr_buffer,"%02x:%02x:%02x:%02x:%02x:%02x", bytes[0],bytes[1],bytes[2],bytes[3],bytes[4],bytes[5]);
-        return addr_buffer;
     }
 
     static char *read_bit_buffer(char *buffer, uint8_t *bytes, uint8_t len){
@@ -387,14 +409,14 @@ namespace esphome{
         }
         case ESP_GAP_BLE_SCAN_PARAM_SET_COMPLETE_EVT: {
             //the unit of the duration is second
-            uint32_t duration = 300;
-            ESP_LOGI(BLE_TAG, "Start scanning for HID-BLE-Devices for %d seconds", duration);
-            esp_ble_gap_start_scanning(duration);
+            scan_setup_complete = true;
+            ESP_LOGD(BLE_TAG,"Setting scan parameters complete");
             break;
         }
         case ESP_GAP_BLE_SCAN_START_COMPLETE_EVT:{
             //scan start complete event to indicate scan start successfully or failed
             if (param->scan_start_cmpl.status != ESP_BT_STATUS_SUCCESS) {
+                is_scanning = false;
                 ESP_LOGE(BLE_TAG, "scan start failed, error status = %x", param->scan_start_cmpl.status);
                 break;
             }
@@ -463,6 +485,7 @@ namespace esphome{
             esp_ble_gap_cb_param_t *scan_result = (esp_ble_gap_cb_param_t *)param;
             switch (scan_result->scan_rst.search_evt) {
             case ESP_GAP_SEARCH_INQ_RES_EVT:{
+                ESP_LOGD(BLE_TAG,"Found device");
                 
                 adv_name = esp_ble_resolve_adv_data(scan_result->scan_rst.ble_adv,
                                                     ESP_BLE_AD_TYPE_NAME_CMPL, &adv_name_len);
@@ -486,16 +509,26 @@ namespace esphome{
                 break;
             }
             case ESP_GAP_SEARCH_INQ_CMPL_EVT:{
+                ESP_LOGD(BLE_TAG,"Scan ended");
+                is_scanning = false;
+                break;
+            }
+            case ESP_GAP_SEARCH_SEARCH_CANCEL_CMPL_EVT:{
+                ESP_LOGD(BLE_TAG,"Scan canceled");
+                is_scanning = false;
                 break;
             }
             default:
+                ESP_LOGD(BLE_TAG,"Scan event: %d", scan_result->scan_rst.search_evt);
                 break;
             }
             break;
         }
 
         case ESP_GAP_BLE_SCAN_STOP_COMPLETE_EVT:{
+            is_scanning = false;
             if (param->scan_stop_cmpl.status != ESP_BT_STATUS_SUCCESS){
+                is_scanning = true;
                 ESP_LOGE(BLE_TAG, "Scan stop failed, error status = %x", param->scan_stop_cmpl.status);
                 break;
             }
@@ -537,9 +570,18 @@ namespace esphome{
             }
         } while (0);
     }
-    BleHidClientComponent::BleHidClientComponent():PollingComponent(2000){
-
+    BleHidClientComponent::BleHidClientComponent():PollingComponent(500){
+        
     };
+
+    text_sensor::TextSensor *BleHidClientComponent::getKeycodeSensor(){
+        return keycodeSensor;
+    }
+
+    binary_sensor::BinarySensor *BleHidClientComponent::getKeypressSensor(){
+        return keypressSensor;
+    }
+
     void BleHidClientComponent::setup() {
         ESP_LOGD(BLE_TAG,"Start of setup");
         // Initialize NVS.
@@ -618,10 +660,18 @@ namespace esphome{
         and the init key means which key you can distribute to the slave. */
         esp_ble_gap_set_security_param(ESP_BLE_SM_SET_INIT_KEY, &init_key, sizeof(uint8_t));
         esp_ble_gap_set_security_param(ESP_BLE_SM_SET_RSP_KEY, &rsp_key, sizeof(uint8_t));
+        
+        esp_ble_gap_update_whitelist(true,ble_remote_address,BLE_WL_ADDR_TYPE_PUBLIC);
         ESP_LOGD(BLE_TAG, "Finished setup");
     };
 
     void BleHidClientComponent::update() {
+        if(!is_scanning && !connect && scan_setup_complete){
+            uint32_t duration = 10;
+            ESP_LOGI(BLE_TAG, "Start scanning for HID-BLE-Devices for %d seconds", duration);
+            is_scanning = true;
+            esp_ble_gap_start_scanning(duration);
+        }
     };
     /* text_sensor::TextSensor *BleHidClientComponent::get_keycode_sensor(){
         return keycodeSensor;
