@@ -1,17 +1,19 @@
+esp32:
+  board: nodemcu-32s
+  framework:
+    type: esp-idf
+    sdkconfig_options:
+      CONFIG_BT_ENABLED: y
+
 esphome:
   name: firetv-remote
-  platform: ESP32
-  board: esp32dev
   includes:
     - ble_hid_client.h
     - ble_hid_client.cpp
-  libraries:
-    - "BLEDevice.h"
-
 
 # Enable logging
 logger:
-  level: DEBUG
+  level: INFO
 
 # Enable Home Assistant API
 api:
@@ -27,25 +29,23 @@ wifi:
     ssid: !secret wifi_fallback_ssid
     password: !secret wifi_fallback_password
 
-captive_portal:
-
 custom_component:
   - id: ble_hid
     lambda: |-
-      auto bleComponent = new BleHidClientComponent();
-      App.register_component(bleComponent);
-      return {bleComponent};
+      auto ble_component = new BleHidClientComponent();
+      App.register_component(ble_component);
+      return {ble_component};
 
 text_sensor:
   - platform: custom
     lambda: |-
       return {ble_hid_keycode(ble_hid)};
     text_sensors:
-      - name: remote_keycode
+      - name: "KeycodeSensor"
 
 binary_sensor:
   - platform: custom
     lambda: |-
       return {ble_hid_keypress(ble_hid)};
     binary_sensors:
-      - name: remote_keypress
+      - name: "KeypressSensor"
