@@ -570,7 +570,7 @@ namespace esphome{
             }
         } while (0);
     }
-    BleHidClientComponent::BleHidClientComponent():PollingComponent(500){
+    BleHidClientComponent::BleHidClientComponent():PollingComponent(100){
         
     };
 
@@ -667,7 +667,7 @@ namespace esphome{
 
     void BleHidClientComponent::update() {
         if(!is_scanning && !connect && scan_setup_complete){
-            uint32_t duration = 10;
+            uint32_t duration = 3600;
             ESP_LOGI(BLE_TAG, "Start scanning for HID-BLE-Devices for %d seconds", duration);
             is_scanning = true;
             esp_ble_gap_start_scanning(duration);
