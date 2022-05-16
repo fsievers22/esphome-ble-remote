@@ -8,6 +8,7 @@
 #include "esp_bt_main.h"
 #include "esp_gatt_common_api.h"
 #include "esp_log.h"
+#include "regex.h"
 
 namespace esphome{
     
@@ -18,7 +19,7 @@ namespace esphome{
 
     static esp_gattc_char_elem_t *char_elem_result   = NULL;
     static esp_gattc_descr_elem_t *descr_elem_result = NULL;
-    static esp_bd_addr_t ble_remote_address = {0x14,0x0A,0xC5,0xD0,0xD4,0xA2};
+    static esp_bd_addr_t ble_remote_address;
 
     ///Declare static functions
     static void esp_gap_cb(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *param);
@@ -48,8 +49,8 @@ namespace esphome{
     static bool get_service = false;
     static const char remote_device_name[] = "ESP_BLE_SECURITY";
 
-    static text_sensor::TextSensor* keycodeSensor = new text_sensor::TextSensor();;
-    static binary_sensor::BinarySensor* keypressSensor = new binary_sensor::BinarySensor();
+    static BleHidClientComponent* bleHidClientComponent;
+    
 
     static esp_ble_scan_params_t ble_scan_params = {
         .scan_type              = BLE_SCAN_TYPE_ACTIVE,
@@ -80,6 +81,11 @@ namespace esphome{
         [PROFILE_A_APP_ID] = {
             .gattc_cb = gattc_profile_event_handler,
             .gattc_if = ESP_GATT_IF_NONE,       /* Not get the gatt_if, so initial is ESP_GATT_IF_NONE */
+            .app_id = ESP_APP_ID_MIN,
+            .conn_id = ESP_BLE_CONN_INT_MIN,
+            .service_start_handle = 0,
+            .service_end_handle = 0,
+            .remote_bda = {}
         },
     };
 
@@ -88,78 +94,39 @@ namespace esphome{
         return addr_buffer;
     }
 
-    static const char *esp_key_type_to_str(esp_ble_key_type_t key_type)
+    static const char *esp_auth_req_to_str(esp_ble_auth_req_t auth_req)
     {
-    const char *key_str = NULL;
-    switch(key_type) {
-        case ESP_LE_KEY_NONE:
-            key_str = "ESP_LE_KEY_NONE";
-            break;
-        case ESP_LE_KEY_PENC:
-            key_str = "ESP_LE_KEY_PENC";
-            break;
-        case ESP_LE_KEY_PID:
-            key_str = "ESP_LE_KEY_PID";
-            break;
-        case ESP_LE_KEY_PCSRK:
-            key_str = "ESP_LE_KEY_PCSRK";
-            break;
-        case ESP_LE_KEY_PLK:
-            key_str = "ESP_LE_KEY_PLK";
-            break;
-        case ESP_LE_KEY_LLK:
-            key_str = "ESP_LE_KEY_LLK";
-            break;
-        case ESP_LE_KEY_LENC:
-            key_str = "ESP_LE_KEY_LENC";
-            break;
-        case ESP_LE_KEY_LID:
-            key_str = "ESP_LE_KEY_LID";
-            break;
-        case ESP_LE_KEY_LCSRK:
-            key_str = "ESP_LE_KEY_LCSRK";
-            break;
-        default:
-            key_str = "INVALID BLE KEY TYPE";
-            break;
-
+        const char *auth_str = NULL;
+        switch(auth_req) {
+            case ESP_LE_AUTH_NO_BOND:
+                auth_str = "ESP_LE_AUTH_NO_BOND";
+                break;
+            case ESP_LE_AUTH_BOND:
+                auth_str = "ESP_LE_AUTH_BOND";
+                break;
+            case ESP_LE_AUTH_REQ_MITM:
+                auth_str = "ESP_LE_AUTH_REQ_MITM";
+                break;
+            case ESP_LE_AUTH_REQ_BOND_MITM:
+                auth_str = "ESP_LE_AUTH_REQ_BOND_MITM";
+                break;
+            case ESP_LE_AUTH_REQ_SC_ONLY:
+                auth_str = "ESP_LE_AUTH_REQ_SC_ONLY";
+                break;
+            case ESP_LE_AUTH_REQ_SC_BOND:
+                auth_str = "ESP_LE_AUTH_REQ_SC_BOND";
+                break;
+            case ESP_LE_AUTH_REQ_SC_MITM:
+                auth_str = "ESP_LE_AUTH_REQ_SC_MITM";
+                break;
+            case ESP_LE_AUTH_REQ_SC_MITM_BOND:
+                auth_str = "ESP_LE_AUTH_REQ_SC_MITM_BOND";
+                break;
+            default:
+                auth_str = "INVALID BLE AUTH REQ";
+                break;
         }
-        return key_str;
-    }
-
-    static char *esp_auth_req_to_str(esp_ble_auth_req_t auth_req)
-    {
-    char *auth_str = NULL;
-    switch(auth_req) {
-        case ESP_LE_AUTH_NO_BOND:
-            auth_str = "ESP_LE_AUTH_NO_BOND";
-            break;
-        case ESP_LE_AUTH_BOND:
-            auth_str = "ESP_LE_AUTH_BOND";
-            break;
-        case ESP_LE_AUTH_REQ_MITM:
-            auth_str = "ESP_LE_AUTH_REQ_MITM";
-            break;
-        case ESP_LE_AUTH_REQ_BOND_MITM:
-            auth_str = "ESP_LE_AUTH_REQ_BOND_MITM";
-            break;
-        case ESP_LE_AUTH_REQ_SC_ONLY:
-            auth_str = "ESP_LE_AUTH_REQ_SC_ONLY";
-            break;
-        case ESP_LE_AUTH_REQ_SC_BOND:
-            auth_str = "ESP_LE_AUTH_REQ_SC_BOND";
-            break;
-        case ESP_LE_AUTH_REQ_SC_MITM:
-            auth_str = "ESP_LE_AUTH_REQ_SC_MITM";
-            break;
-        case ESP_LE_AUTH_REQ_SC_MITM_BOND:
-            auth_str = "ESP_LE_AUTH_REQ_SC_MITM_BOND";
-            break;
-        default:
-            auth_str = "INVALID BLE AUTH REQ";
-            break;
-    }
-    return auth_str;
+        return auth_str;
     }
 
     static void gattc_profile_event_handler(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, esp_ble_gattc_cb_param_t *param)
@@ -333,13 +300,13 @@ namespace esphome{
                     uint8_t dataBit = p_data->notify.value[0];
                     if(dataBit == 0){
                         ESP_LOGI(BLE_TAG,"Released key");
-                        keypressSensor->publish_state(false);
+                        bleHidClientComponent->getKeypressSensor()->publish_state(false);
                     }
                     else if(KEYMAP.count(dataBit) > 0){
                         std::string key = KEYMAP.at(dataBit);
                         ESP_LOGI(BLE_TAG,"Pressed key %s", key.c_str());
-                        keycodeSensor->publish_state(key);
-                        keypressSensor->publish_state(true);
+                        bleHidClientComponent->getKeycodeSensor()->publish_state(key);
+                        bleHidClientComponent->getKeypressSensor()->publish_state(true);
                     }
                     else{
                         ESP_LOGW(BLE_TAG,"No key defined for databits %x", dataBit);
@@ -570,17 +537,23 @@ namespace esphome{
             }
         } while (0);
     }
-    BleHidClientComponent::BleHidClientComponent():PollingComponent(100){
-        
+    BleHidClientComponent::BleHidClientComponent(const char *ble_mac_address) : PollingComponent(100){
+        char *token;
+        char ble_address[strlen(ble_mac_address)];
+        strcpy(ble_address, ble_mac_address);
+        token = strtok(ble_address,":");
+        uint8_t index = 0;
+        while (token != NULL)
+        {
+            if(index > 5){
+                ESP_LOGE(BLE_TAG, "Not a valid bluetooth mac address");
+                break;
+            }
+            ble_remote_address[index] = strtol(token, NULL, 16);
+            index++;
+            token = strtok(NULL,":");
+        }
     };
-
-    text_sensor::TextSensor *BleHidClientComponent::getKeycodeSensor(){
-        return keycodeSensor;
-    }
-
-    binary_sensor::BinarySensor *BleHidClientComponent::getKeypressSensor(){
-        return keypressSensor;
-    }
 
     void BleHidClientComponent::setup() {
         ESP_LOGD(BLE_TAG,"Start of setup");
@@ -673,11 +646,11 @@ namespace esphome{
             esp_ble_gap_start_scanning(duration);
         }
     };
-    /* text_sensor::TextSensor *BleHidClientComponent::get_keycode_sensor(){
+    text_sensor::TextSensor *BleHidClientComponent::getKeycodeSensor(){
         return keycodeSensor;
     }
 
-    binary_sensor::BinarySensor *BleHidClientComponent::get_keypress_sensor(){
+    binary_sensor::BinarySensor *BleHidClientComponent::getKeypressSensor(){
         return keypressSensor;
-    } */
+    }
 };

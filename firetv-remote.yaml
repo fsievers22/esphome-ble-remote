@@ -1,12 +1,26 @@
+substitutions:
+  board: az-delivery-devkit-v4 # Your esp32 board
+
+  # Wifi credentials
+  wifi_ssid: !secret wifi_ssid # Required to replace
+  wifi_password: !secret wifi_password # Required to replace
+
+  # OTA and API
+  ota_password: !secret ota_password # Required to replace
+
+  bluetooth_mac_address: "\"00:00:00:00:00:00\"" # Required to replace
+
+
+
 esp32:
-  board: nodemcu-32s
+  board: $board
   framework:
     type: esp-idf
     sdkconfig_options:
       CONFIG_BT_ENABLED: y
 
 esphome:
-  name: firetv-remote
+  name: ble-remote-connector
   includes:
     - ble_hid_client.h
     - ble_hid_client.cpp
@@ -22,30 +36,37 @@ ota:
   password: !secret ota_password
 
 wifi:
-  ssid: !secret wifi_ssid
-  password: !secret wifi_password
-  # Enable fallback hotspot (captive portal) in case wifi connection fails
-  ap:
-    ssid: !secret wifi_fallback_ssid
-    password: !secret wifi_fallback_password
+  ssid: $wifi_ssid
+  password: $wifi_password
+  fast_connect: on
 
 custom_component:
-  - id: ble_hid
-    lambda: |-
-      auto ble_component = new BleHidClientComponent();
-      App.register_component(ble_component);
-      return {ble_component};
+  - lambda: |-
+      return {new BleHidClientComponent($bluetooth_mac_address)};
+    components:
+      - id: ble_remote_connector
 
 text_sensor:
   - platform: custom
     lambda: |-
-      return {ble_hid_keycode(ble_hid)};
+      auto connector = static_cast<BleHidClientComponent *>(ble_remote_connector);
+      return {connector->getKeycodeSensor()};
     text_sensors:
       - name: "KeycodeSensor"
 
 binary_sensor:
   - platform: custom
     lambda: |-
-      return {ble_hid_keypress(ble_hid)};
+      auto connector = static_cast<BleHidClientComponent *>(ble_remote_connector);
+      return {connector->getKeypressSensor()};
     binary_sensors:
       - name: "KeypressSensor"
+
+switch:
+  - platform: restart
+    name: "Restart"
+
+sensor:
+  - platform: wifi_signal
+    name: "WiFi Signal"
+    update_interval: 60s
