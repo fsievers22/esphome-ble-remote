@@ -10,7 +10,7 @@ substitutions:
 
   bluetooth_mac_address: "\"00:00:00:00:00:00\"" # Required to replace
 
-
+#---------------------- Do not edit anything below here --------------------
 
 esp32:
   board: $board
