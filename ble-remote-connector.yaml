@@ -41,23 +41,24 @@ wifi:
   fast_connect: on
 
 custom_component:
-  - id: ble_hid
-    lambda: |-
-      auto ble_component = new BleHidClientComponent();
-      App.register_component(ble_component);
-      return {ble_component};
+  - lambda: |-
+      return {new BleHidClientComponent($bluetooth_mac_address)};
+    components:
+      - id: ble_remote_connector
 
 text_sensor:
   - platform: custom
     lambda: |-
-      return {ble_hid_keycode(ble_hid)};
+      auto connector = static_cast<BleHidClientComponent *>(ble_remote_connector);
+      return {connector->getKeycodeSensor()};
     text_sensors:
       - name: "KeycodeSensor"
 
 binary_sensor:
   - platform: custom
     lambda: |-
-      return {ble_hid_keypress(ble_hid)};
+      auto connector = static_cast<BleHidClientComponent *>(ble_remote_connector);
+      return {connector->getKeypressSensor()};
     binary_sensors:
       - name: "KeypressSensor"
 
