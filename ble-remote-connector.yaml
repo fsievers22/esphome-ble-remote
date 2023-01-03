@@ -8,7 +8,7 @@ substitutions:
   # OTA and API
   ota_password: !secret ota_password # Required to replace
 
-  bluetooth_mac_address: "\"00:00:00:00:00:00\"" # Required to replace
+  bluetooth_mac_address: "\"48:B0:2D:52:29:C6\"" # Required to replace
 
 #---------------------- Do not edit anything below here --------------------
 
