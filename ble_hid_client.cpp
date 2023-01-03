@@ -430,7 +430,7 @@ namespace esphome{
         }
         case ESP_GAP_BLE_KEY_EVT:{
             //shows the ble key info share with peer device to the user.
-            ESP_LOGD(BLE_TAG, "key type = %s", esp_key_type_to_str(param->ble_security.ble_key.key_type));
+            //ESP_LOGD(BLE_TAG, "key type = %s", esp_key_type_to_str(param->ble_security.ble_key.key_type));
             break;
         }
         case ESP_GAP_BLE_AUTH_CMPL_EVT: {
@@ -458,7 +458,7 @@ namespace esphome{
                                                     ESP_BLE_AD_TYPE_NAME_CMPL, &adv_name_len);
                 uint8_t *service_uuid = NULL;
                 uint8_t service_uuid_len = 0;
-                service_uuid = esp_ble_resolve_adv_data(scan_result->scan_rst.ble_adv,ESP_BLE_AD_TYPE_16SRV_CMPL, &service_uuid_len);
+                service_uuid = esp_ble_resolve_adv_data(scan_result->scan_rst.ble_adv,ESP_BLE_AD_TYPE_16SRV_PART, &service_uuid_len);
                 if (adv_name != NULL && service_uuid_len > 1 && service_uuid[0] == 0x12 && service_uuid[1] == 0x18) {
                     ESP_LOGI(BLE_TAG,"Found HID device:");
                     char ble_addr_str[18];
@@ -540,6 +540,7 @@ namespace esphome{
     BleHidClientComponent::BleHidClientComponent(const char *ble_mac_address) : PollingComponent(100){
         char *token;
         char ble_address[strlen(ble_mac_address)];
+        ESP_LOGI(BLE_TAG, "Trying to connect to ble server address: %s", ble_mac_address);
         strcpy(ble_address, ble_mac_address);
         token = strtok(ble_address,":");
         uint8_t index = 0;
@@ -556,6 +557,7 @@ namespace esphome{
     };
 
     void BleHidClientComponent::setup() {
+        bleHidClientComponent = this;
         ESP_LOGD(BLE_TAG,"Start of setup");
         // Initialize NVS.
         esp_err_t ret = nvs_flash_init();
