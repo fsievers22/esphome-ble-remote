@@ -452,14 +452,36 @@ namespace esphome{
             esp_ble_gap_cb_param_t *scan_result = (esp_ble_gap_cb_param_t *)param;
             switch (scan_result->scan_rst.search_evt) {
             case ESP_GAP_SEARCH_INQ_RES_EVT:{
-                ESP_LOGD(BLE_TAG,"Found device");
+                ESP_LOGD(BLE_TAG,"Found device:");
                 
                 adv_name = esp_ble_resolve_adv_data(scan_result->scan_rst.ble_adv,
                                                     ESP_BLE_AD_TYPE_NAME_CMPL, &adv_name_len);
+                char ble_addr_str[18];
+                char remote_device_name[adv_name_len+1];
+                ESP_LOGD(BLE_TAG,"\taddress: %s",ble_addr_to_str(ble_addr_str,scan_result->scan_rst.bda));
+                read_bit_buffer(remote_device_name,adv_name,adv_name_len);
+                ESP_LOGD(BLE_TAG,"\tname: %s",remote_device_name);
+        
                 uint8_t *service_uuid = NULL;
                 uint8_t service_uuid_len = 0;
                 service_uuid = esp_ble_resolve_adv_data(scan_result->scan_rst.ble_adv,ESP_BLE_AD_TYPE_16SRV_PART, &service_uuid_len);
-                if (adv_name != NULL && service_uuid_len > 1 && service_uuid[0] == 0x12 && service_uuid[1] == 0x18) {
+
+                if(service_uuid_len <= 1){
+                    service_uuid_len = 0;
+                    service_uuid = esp_ble_resolve_adv_data(scan_result->scan_rst.ble_adv,ESP_BLE_AD_TYPE_16SRV_CMPL, &service_uuid_len);
+                }
+
+                uint8_t found_hid_services = 0;
+
+                for(uint8_t i=0; i < service_uuid_len; i++){
+                    if(service_uuid[i] == 0x12 || service_uuid[i] == 0x18){
+                        found_hid_services++;
+                    }
+                }
+                
+
+
+                if (adv_name != NULL && service_uuid_len > 1 && found_hid_services == 2) {
                     ESP_LOGI(BLE_TAG,"Found HID device:");
                     char ble_addr_str[18];
                     char remote_device_name[adv_name_len+1];
