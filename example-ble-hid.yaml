@@ -20,14 +20,14 @@ esp32:
       CONFIG_BT_ENABLED: y
 
 esphome:
-  name: ble-remote-connector
-  includes:
-    - ble_hid_client.h
-    - ble_hid_client.cpp
+  name: example-ble-hid
+
+external_components:
+  - source: components
 
 # Enable logging
 logger:
-  level: INFO
+  level: DEBUG
 
 # Enable Home Assistant API
 api:
@@ -40,27 +40,17 @@ wifi:
   password: $wifi_password
   fast_connect: on
 
-custom_component:
-  - lambda: |-
-      return {new BleHidClientComponent($bluetooth_mac_address)};
-    components:
-      - id: ble_remote_connector
+esp32_ble_tracker:
+
+ble_client:
+  id: ble_client_hid_
+  mac_address: "14:0A:C5:D0:D4:A2"
 
 text_sensor:
-  - platform: custom
-    lambda: |-
-      auto connector = static_cast<BleHidClientComponent *>(ble_remote_connector);
-      return {connector->getKeycodeSensor()};
-    text_sensors:
-      - name: "KeycodeSensor"
+  - platform: ble_client_hid
+    ble_client_id: ble_client_hid_
+    name: "test"
 
-binary_sensor:
-  - platform: custom
-    lambda: |-
-      auto connector = static_cast<BleHidClientComponent *>(ble_remote_connector);
-      return {connector->getKeypressSensor()};
-    binary_sensors:
-      - name: "KeypressSensor"
 
 switch:
   - platform: restart
