@@ -678,3 +678,4 @@ namespace esphome{
         return keypressSensor;
     }
 };
+
