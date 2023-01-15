@@ -43,14 +43,17 @@ wifi:
 esp32_ble_tracker:
 
 ble_client:
-  id: ble_client_hid_
+  id: ble_client_
   mac_address: "14:0A:C5:D0:D4:A2"
+
+ble_client_hid:
+  id: ble_client_hid_
+  ble_client_id: ble_client_
 
 text_sensor:
   - platform: ble_client_hid
-    ble_client_id: ble_client_hid_
+    ble_client_hid_id: ble_client_hid_
     name: "test"
-
 
 switch:
   - platform: restart
