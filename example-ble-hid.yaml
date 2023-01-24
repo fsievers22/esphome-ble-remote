@@ -8,7 +8,8 @@ substitutions:
   # OTA and API
   ota_password: !secret ota_password # Required to replace
 
-  bluetooth_mac_address: "\"48:B0:2D:52:29:C6\"" # Required to replace
+  #bluetooth_mac_address: "\"48:B0:2D:52:29:C6\""
+  #bluetooth_mac_address: "\"48:B0:2D:52:29:C6\"" # Required to replace
 
 #---------------------- Do not edit anything below here --------------------
 
@@ -44,7 +45,8 @@ esp32_ble_tracker:
 
 ble_client:
   id: ble_client_
-  mac_address: "14:0A:C5:D0:D4:A2"
+  mac_address: "48:B0:2D:52:29:C6"
+  #mac_address: "14:0A:C5:D0:D4:A2"
 
 ble_client_hid:
   id: ble_client_hid_
@@ -53,7 +55,12 @@ ble_client_hid:
 text_sensor:
   - platform: ble_client_hid
     ble_client_hid_id: ble_client_hid_
-    name: "test"
+    name: "Keycode"
+
+binary_sensor:
+  - platform: ble_client_hid
+    ble_client_hid_id: ble_client_hid_
+    name: "Keypress"
 
 switch:
   - platform: restart
@@ -63,3 +70,6 @@ sensor:
   - platform: wifi_signal
     name: "WiFi Signal"
     update_interval: 60s
+  - platform: ble_client_hid
+    ble_client_hid_id: ble_client_hid_
+    name: "Battery"
