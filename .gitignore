@@ -10,3 +10,4 @@
 /secrets.yaml
 /.vscode/
 **/__pycache__/
+.cache/

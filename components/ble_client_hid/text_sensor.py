@@ -22,6 +22,4 @@ CONFIG_SCHEMA = cv.All(
 
 async def to_code(config):
     var = cg.new_Pvariable(config[CONF_ID])
-    #await cg.register_parented()
-    #await cg.register_component(var, config)
     await ble_client_hid.register_keycode_text_sensor(var, config)
