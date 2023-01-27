@@ -481,7 +481,7 @@ namespace esphome{
                 
 
 
-                if (adv_name != NULL && service_uuid_len > 1 && found_hid_services == 2) {
+                if (adv_name != NULL && found_hid_services >= 2) {
                     ESP_LOGI(BLE_TAG,"Found HID device:");
                     char ble_addr_str[18];
                     char remote_device_name[adv_name_len+1];
