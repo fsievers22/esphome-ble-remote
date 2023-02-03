@@ -196,7 +196,7 @@ void BLEClientHID::send_input_report_event(esp_ble_gattc_cb_param_t *p_data){
   event_data.pop_back();
   event_data += "]";
   this->fire_homeassistant_event("hid_events", {{"events", event_data}});
-  ESP_LOGI(TAG, "Send HID events to HomeAssistant: %s", event_data.c_str())
+  ESP_LOGI(TAG, "Send HID events to HomeAssistant: %s", event_data.c_str());
   delete data;
 }
 
@@ -244,6 +244,14 @@ void BLEClientHID::configure_hid_client() {
     if (battery_level_char != nullptr &&
         ((battery_level_char->properties & ESP_GATT_CHAR_PROP_BIT_READ) != 0)) {
       this->battery_handle = battery_level_char->handle;
+      auto status = esp_ble_gattc_register_for_notify(
+            this->parent()->get_gattc_if(), this->parent()->get_remote_bda(),
+            battery_level_char->handle);
+        if (status != ESP_OK) {
+          ESP_LOGW(TAG,
+                   "Register for notify failed for handle %d with status=%d",
+                   battery_level_char->handle, status);
+        }
     }
   }
   if (device_info_service != nullptr) {
@@ -279,8 +287,8 @@ void BLEClientHID::configure_hid_client() {
     ESP_LOGD(TAG,"Parse HID Report Map Done");
     std::vector<BLECharacteristic *> chars = hid_service->characteristics;
     for (BLECharacteristic *hid_char : chars) {
-      if (hid_char->uuid.get_uuid().uuid.uuid16 == ESP_GATT_UUID_HID_REPORT &&
-          hid_char->properties & ESP_GATT_CHAR_PROP_BIT_NOTIFY) {
+      if (hid_char->uuid.get_uuid().uuid.uuid16 == ESP_GATT_UUID_HID_REPORT){
+        if(hid_char->properties & ESP_GATT_CHAR_PROP_BIT_NOTIFY) {
         auto status = esp_ble_gattc_register_for_notify(
             this->parent()->get_gattc_if(), this->parent()->get_remote_bda(),
             hid_char->handle);
@@ -289,12 +297,15 @@ void BLEClientHID::configure_hid_client() {
                    "Register for notify failed for handle %d with status=%d",
                    hid_char->handle, status);
         }
+        }
         BLEDescriptor *rpt_ref_desc =
             hid_char->get_descriptor(ESP_GATT_UUID_RPT_REF_DESCR);
         if (rpt_ref_desc != nullptr) {
           handle_report_id.insert(std::make_pair(
               hid_char->handle,
               this->handles_to_read[rpt_ref_desc->handle]->value_[0]));
+          ESP_LOGD(TAG, "Report ID for handle %d is %d", hid_char->handle,
+                   this->handles_to_read[rpt_ref_desc->handle]->value_[0]);
         }
       }
     }
