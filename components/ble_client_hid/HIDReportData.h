@@ -68,6 +68,9 @@
 #define CONCAT_EXPANDED(x, y) CONCAT(x, y)
 #endif
 
+#if !defined(MAX) || defined(__DOXYGEN__)
+  #define MAX(x, y)               (((x) > (y)) ? (x) : (y))
+#endif
 /* Private Interface - For use in library only: */
 #if !defined(__DOXYGEN__)
 /* Macros: */

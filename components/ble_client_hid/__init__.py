@@ -9,6 +9,8 @@ from esphome.const import CONF_ID
 DEPENDENCIES = ['ble_client']
 CODE_OWNERS=["@fsievers22"]
 
+MULTI_CONF=3
+
 ble_client_hid_ns = cg.esphome_ns.namespace("ble_client_hid")
 
 BLEClientHID = ble_client_hid_ns.class_(
@@ -51,5 +53,3 @@ async def to_code(config):
     var = cg.new_Pvariable(config[CONF_ID])
     await cg.register_component(var, config)
     await ble_client.register_ble_node(var, config)
-    if CORE.using_esp_idf:
-        add_idf_sdkconfig_option("CONFIG_BT_HID_ENABLED", True)
