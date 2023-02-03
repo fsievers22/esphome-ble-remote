@@ -52,16 +52,6 @@ ble_client_hid:
   - id: ble_client_hid_
     ble_client_id: ble_client_
 
-text_sensor:
-  - platform: ble_client_hid
-    ble_client_hid_id: ble_client_hid_
-    name: "Keycode"
-
-binary_sensor:
-  - platform: ble_client_hid
-    ble_client_hid_id: ble_client_hid_
-    name: "Keypress"
-
 switch:
   - platform: restart
     name: "Restart"
