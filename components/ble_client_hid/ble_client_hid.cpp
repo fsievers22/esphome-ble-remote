@@ -1,23 +1,5 @@
 #include "ble_client_hid.h"
 
-#include <esp_log.h>
-#include <freertos/FreeRTOS.h>
-#include <freertos/task.h>
-#include <nvs_flash.h>
-
-#include "esp_bt.h"
-#include "esp_bt_defs.h"
-#include "esp_bt_main.h"
-#include "esp_err.h"
-#include "esp_gap_ble_api.h"
-#include "esp_gatt_defs.h"
-#include "esp_gattc_api.h"
-#include "esp_hid_common.h"
-#include "esp_hidh.h"
-#include "esphome/components/esp32_ble_tracker/esp32_ble_tracker.h"
-#include "esphome/core/application.h"
-#include "esphome/core/helpers.h"
-#include "esphome/core/log.h"
 #include "usages.h"
 
 #ifdef USE_ESP32
@@ -180,19 +162,11 @@ void BLEClientHID::gattc_event_handler(esp_gattc_cb_event_t event,
     case ESP_GATTC_NOTIFY_EVT: {
       if (param->notify.conn_id != this->parent()->get_conn_id()) break;
       if (p_data->notify.handle == this->battery_handle) {
-        // p.battery.level = p_data->notify.value[0];
-        // this->hidh_event(ESP_HIDH_BATTERY_EVENT, &p);
-        // TODO: publish battery level
+        uint8_t battery_level = p_data->notify.value[0];
+        this->battery_sensor->publish_state(battery_level);
       } else {
         // has to be hid report
-        
-        ESP_LOGD(TAG, "Received HID input report from handle %d",
-                 p_data->notify.handle);
-        uint8_t *data = new uint8_t[p_data->notify.value_len + 1];
-        memcpy(data + 1, p_data->notify.value, p_data->notify.value_len);
-        data[0] = this->handle_report_id[p_data->notify.handle];
-        std::vector<HIDReportItemValue> hid_report_values = this->hid_report_map->parse(data);
-        delete data;
+        this->send_input_report_event(p_data);
       }
       break;
     }
@@ -200,6 +174,30 @@ void BLEClientHID::gattc_event_handler(esp_gattc_cb_event_t event,
       break;
     }
   }
+}
+
+void BLEClientHID::send_input_report_event(esp_ble_gattc_cb_param_t *p_data){
+  ESP_LOGD(TAG, "Received HID input report from handle %d",
+                 p_data->notify.handle);
+  uint8_t *data = new uint8_t[p_data->notify.value_len + 1];
+  memcpy(data + 1, p_data->notify.value, p_data->notify.value_len);
+  data[0] = this->handle_report_id[p_data->notify.handle];
+  std::vector<HIDReportItemValue> hid_report_values = this->hid_report_map->parse(data);
+  std::string event_data = "[";
+  for(HIDReportItemValue value : hid_report_values){
+    std::string usage;
+    if(USAGE_PAGES.count(value.usage.page) > 0 && USAGE_PAGES.at(value.usage.page).usages_.count(value.usage.usage) > 0){
+      usage = USAGE_PAGES.at(value.usage.page).usages_.at(value.usage.usage);
+    } else {
+      usage = std::to_string(value.usage.page) + "_" + std::to_string(value.usage.usage);
+    }
+    event_data += ("{\"usage\":\"" + usage + "\",\"value\":" + std::to_string(value.value) + "},");
+  }
+  event_data.pop_back();
+  event_data += "]";
+  this->fire_homeassistant_event("hid_events", {{"events", event_data}});
+  ESP_LOGI(TAG, "Send HID events to HomeAssistant: %s", event_data.c_str())
+  delete data;
 }
 
 void BLEClientHID::register_battery_sensor(sensor::Sensor *battery_sensor) {
@@ -272,6 +270,9 @@ void BLEClientHID::configure_hid_client() {
     BLECharacteristic *hid_report_map_char =
         hid_service->get_characteristic(ESP_GATT_UUID_HID_REPORT_MAP);
     ESP_LOGD(TAG,"Parse HID Report Map");
+    HIDReportMap::esp_logd_report_map(
+        this->handles_to_read[hid_report_map_char->handle]->value_,
+        this->handles_to_read[hid_report_map_char->handle]->value_len_);
     this->hid_report_map = HIDReportMap::parse_report_map_data(
         this->handles_to_read[hid_report_map_char->handle]->value_,
         this->handles_to_read[hid_report_map_char->handle]->value_len_);
