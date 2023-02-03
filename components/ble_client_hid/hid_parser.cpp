@@ -4,7 +4,7 @@
 #include <map>
 #include <bitset>
 
-#include "HIDReportData.h"
+#include "hid_report_data.h"
 #include "esphome/core/helpers.h"
 #include "esphome/core/log.h"
 
@@ -47,24 +47,24 @@ namespace esphome
       {
         uint8_t report_item_info = report_map_data[0];
         report_map_data++;
-        switch (report_item_info & HID_RI_DATA_SIZE_MASK)
+        switch (report_item_info & HID_ITEM_SIZE_MASK)
         {
-        case HID_RI_DATA_BITS_32:
+        case HID_ITEM_SIZE_32:
           ESP_LOGD(TAG, "%X, %X, %X, %X, %X", report_item_info, report_map_data[0], report_map_data[1], report_map_data[2], report_map_data[3]);
           report_map_data += 4;
           report_map_size -= 4;
           break;
-        case HID_RI_DATA_BITS_16:
+        case HID_ITEM_SIZE_16:
           ESP_LOGD(TAG, "%X, %X, %X", report_item_info, report_map_data[0], report_map_data[1]);
           report_map_data += 2;
           report_map_size -= 2;
           break;
-        case HID_RI_DATA_BITS_8:
+        case HID_ITEM_SIZE_8:
           ESP_LOGD(TAG, "%X, %X", report_item_info, report_map_data[0]);
           report_map_data += 1;
           report_map_size -= 1;
           break;
-        case HID_RI_DATA_BITS_0:
+        case HID_ITEM_SIZE_0:
           ESP_LOGD(TAG, "%X", report_item_info);
           break;
         }
@@ -75,9 +75,9 @@ namespace esphome
     {
       uint32_t report_item_data;
 
-      switch (report_item_info & HID_RI_DATA_SIZE_MASK)
+      switch (report_item_info & HID_ITEM_SIZE_MASK)
       {
-      case HID_RI_DATA_BITS_32:
+      case HID_ITEM_SIZE_32:
         report_item_data =
             (((uint32_t)(*p_report_map_data)[3] << 24) |
              ((uint32_t)(*p_report_map_data)[2] << 16) |
@@ -86,14 +86,14 @@ namespace esphome
         (*p_report_map_data) += 4;
         return report_item_data;
 
-      case HID_RI_DATA_BITS_16:
+      case HID_ITEM_SIZE_16:
         report_item_data =
             (((uint16_t)(*p_report_map_data)[1] << 8) | ((*p_report_map_data)[0]));
         (*report_map_size) -= 2;
         (*p_report_map_data) += 2;
         return report_item_data;
 
-      case HID_RI_DATA_BITS_8:
+      case HID_ITEM_SIZE_8:
         report_item_data = (*p_report_map_data)[0];
         (*report_map_size) -= 1;
         (*p_report_map_data) += 1;
@@ -107,7 +107,7 @@ namespace esphome
 
     static const HIDUsage parse_usage(uint32_t data, uint16_t usage_page)
     {
-      if ((data & HID_RI_DATA_SIZE_MASK) == HID_RI_DATA_BITS_32)
+      if ((data & HID_ITEM_SIZE_MASK) == HID_ITEM_SIZE_32)
       {
         return HIDUsage((uint16_t)data, (uint16_t)(data >> 16));
       }
@@ -151,15 +151,15 @@ namespace esphome
         report_map_size--;
 
         uint32_t report_item_data = HIDReportMap::parse_item(&report_map_data, &report_map_size, report_item_info);
-        switch (report_item_info & (HID_RI_TYPE_MASK | HID_RI_TAG_MASK))
+        switch (report_item_info & (HID_ITEM_TYPE_MASK | HID_ITEM_TAG_MASK))
         {
-        case HID_RI_PUSH(0):
+        case HID_ITEM_TYPE_TAG_PUSH:
         {
 
           parser_states.push(state_table);
           break;
         }
-        case HID_RI_POP(0):
+        case HID_ITEM_TYPE_TAG_POP:
         {
           if (parser_states.size() <= 0)
           {
@@ -173,53 +173,53 @@ namespace esphome
           break;
         }
 
-        case HID_RI_USAGE_PAGE(0):
+        case HID_ITEM_TYPE_TAG_USAGE_PAGE:
         {
           state_table.usage_page = report_item_data;
           break;
         }
 
-        case HID_RI_LOGICAL_MINIMUM(0):
+        case HID_ITEM_TYPE_TAG_LOGICAL_MINIMUM:
         {
           state_table.logical_range.minimum = report_item_data;
           break;
         }
 
-        case HID_RI_LOGICAL_MAXIMUM(0):
+        case HID_ITEM_TYPE_TAG_LOGICAL_MAXIMUM:
         {
           state_table.logical_range.maximum = report_item_data;
           break;
         }
 
-        case HID_RI_PHYSICAL_MINIMUM(0):
+        case HID_ITEM_TYPE_TAG_PHYSICAL_MINIMUM:
           // Ignore for now
           break;
 
-        case HID_RI_PHYSICAL_MAXIMUM(0):
+        case HID_ITEM_TYPE_TAG_PHYSICAL_MAXIMUM:
           // Ignore for now
           break;
 
-        case HID_RI_UNIT_EXPONENT(0):
+        case HID_ITEM_TYPE_TAG_UNIT_EXPONENT:
           // Ignore for now
           break;
 
-        case HID_RI_UNIT(0):
+        case HID_ITEM_TYPE_TAG_UNIT:
           // Ignore for now
           break;
 
-        case HID_RI_REPORT_SIZE(0):
+        case HID_ITEM_TYPE_TAG_REPORT_SIZE:
         {
           state_table.report_size = report_item_data;
           break;
         }
 
-        case HID_RI_REPORT_COUNT(0):
+        case HID_ITEM_TYPE_TAG_REPORT_COUNT:
         {
           state_table.report_count = report_item_data;
           break;
         }
 
-        case HID_RI_REPORT_ID(0):
+        case HID_ITEM_TYPE_TAG_REPORT_ID:
         {
           if (input_reports.count(report_item_data) == 0)
           {
@@ -229,33 +229,33 @@ namespace esphome
           break;
         }
 
-        case HID_RI_USAGE(0):
+        case HID_ITEM_TYPE_TAG_USAGE:
         {
           usages.push_back(parse_usage(report_item_data, state_table.usage_page));
           break;
         }
 
-        case HID_RI_USAGE_MINIMUM(0):
+        case HID_ITEM_TYPE_TAG_USAGE_MINIMUM:
         {
           usage_range.minimum = parse_usage(report_item_data, state_table.usage_page);
           break;
         }
 
-        case HID_RI_USAGE_MAXIMUM(0):
+        case HID_ITEM_TYPE_TAG_USAGE_MAXIMUM:
         {
           usage_range.maximum = parse_usage(report_item_data, state_table.usage_page);
           break;
         }
 
-        case HID_RI_COLLECTION(0):
+        case HID_ITEM_TYPE_TAG_COLLECTION:
           // Ignore for now
           break;
 
-        case HID_RI_END_COLLECTION(0):
+        case HID_ITEM_TYPE_TAG_END_COLLECTION:
           // Ignore for now
           break;
 
-        case HID_RI_INPUT(0):
+        case HID_ITEM_TYPE_TAG_INPUT:
 
         {
           ESP_LOGD(TAG, "Found input main item");
@@ -299,17 +299,17 @@ namespace esphome
           }
           break;
         }
-        case HID_RI_OUTPUT(0):
+        case HID_ITEM_TYPE_TAG_OUTPUT:
           // Ignore for now
           break;
-        case HID_RI_FEATURE(0):
+        case HID_ITEM_TYPE_TAG_FEATURE:
           // Ignore for now
           break;
 
         default:
           break;
         }
-        if ((report_item_info & HID_RI_TYPE_MASK) == HID_RI_TYPE_MAIN)
+        if ((report_item_info & HID_ITEM_TYPE_MASK) == HID_ITEM_TYPE_MAIN)
         {
           usages.clear();
           usage_range.maximum = HIDUsage(0, 0);
