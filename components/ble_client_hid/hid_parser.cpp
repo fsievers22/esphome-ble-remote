@@ -424,7 +424,7 @@ namespace esphome
 
     std::vector<HIDReportItemValue> HIDInputReportArray::parse(uint8_t *report_data)
     {
-      std::vector<HIDReportItemValue> values;
+      std::vector<HIDReportItemValue> values = {};
 
       for (uint8_t i = 0; i < this->report_count; i++)
       {
@@ -432,31 +432,20 @@ namespace esphome
         if (value > this->logical_range.maximum || value < this->logical_range.minimum)
         {
           ESP_LOGD(TAG, "Value out of range");
-          continue;
+          value = 0;
         }
-        if (value == 0)
-        {
-          continue;
-        }
-        values.push_back(HIDReportItemValue(this->usage_collection->get_usage(value), 1, value));
-        ESP_LOGD(TAG, values.back().to_string().c_str());
-      }
-
-      for (HIDReportItemValue last_value : this->last_values)
-      {
-        if (std::count(values.begin(), values.end(), last_value) == 0)
-        {
-          values.push_back(HIDReportItemValue(last_value.usage, 0, last_value.raw_value));
-          ESP_LOGD(TAG, values.back().to_string().c_str());
-        }
-      }
-
-      this->last_values.clear();
-      for (HIDReportItemValue value : values)
-      {
-        if (value.value != 0)
-        {
-          this->last_values.push_back(value);
+        if(value == 0){
+          if(this->last_values[i].value){
+            values.push_back(HIDReportItemValue(this->last_values[i].usage, 0, value));
+            last_values[i] = values.back();
+            ESP_LOGD(TAG, values.back().to_string().c_str());
+          }
+        } else {
+          if(this->last_values[i].value == 0){
+            values.push_back(HIDReportItemValue(this->usage_collection->get_usage(value), 1, value));
+            last_values[i] = values.back();
+            ESP_LOGD(TAG, last_values[i].to_string().c_str());
+          }
         }
       }
       return values;
