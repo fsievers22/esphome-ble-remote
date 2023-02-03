@@ -1,11 +1,10 @@
-#pragma once
-
 #include "esphome/core/component.h"
 #include "esphome/components/ble_client/ble_client.h"
 #include "esphome/components/esp32_ble_tracker/esp32_ble_tracker.h"
 #include "esphome/components/text_sensor/text_sensor.h"
 #include "esphome/components/binary_sensor/binary_sensor.h"
 #include "esphome/components/sensor/sensor.h"
+#include "hid_parser.h"
 
 #ifdef USE_ESP32
 #include <esp_gattc_api.h>
@@ -20,6 +19,10 @@ enum class HIDState {
   // Initial state
   INIT,
   SETUP,
+
+  HID_SERVICE_FOUND,
+
+  NO_HID_SERVICE,
   // Client is coonnected
   BLE_CONNECTED,
   // Start reading relevant client characteristics
@@ -70,15 +73,25 @@ class BLEClientHID : public Component, public ble_client::BLEClientNode {
   void register_battery_sensor(sensor::Sensor * battery_sensor);
   void configure_hid_client();
   void initialize_dev();
+  
  protected:
+  HIDReportMap* hid_report_map;
   std::vector<ble_client::BLECharacteristic *> characteristics;
   std::vector<uint16_t> handles_registered_for_notify;
   std::map<uint16_t, GATTReadData *> handles_to_read;
+  std::map<uint16_t, uint8_t> handle_report_id;
   text_sensor::TextSensor *keycode_text_sensor;
   binary_sensor::BinarySensor *keypress_binary_sensor;
   sensor::Sensor *battery_sensor;
-  esp_hidh_dev_t *dev = NULL;
   HIDState hid_state = HIDState::INIT;
+  uint16_t battery_handle;
+  uint16_t vendor_id;
+  uint16_t product_id;
+  uint16_t version;
+  std::string device_name;
+  std::string manufacturer;
+  std::string serial_number;
+  
 };
 
 }  // namespace ble_client_hid
