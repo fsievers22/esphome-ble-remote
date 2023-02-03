@@ -1,5 +1,5 @@
 #pragma once
-#include <vector>
+
 namespace esphome
 {
   namespace ble_client_hid

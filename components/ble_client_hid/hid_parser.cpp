@@ -1,13 +1,9 @@
-
-
 #include <stack>
 #include <map>
-#include <bitset>
-
-#include "hid_report_data.h"
 #include "esphome/core/helpers.h"
 #include "esphome/core/log.h"
 
+#include "hid_report_data.h"
 #include "hid_parser.h"
 
 namespace esphome
@@ -46,6 +42,7 @@ namespace esphome
       while (report_map_size > 0)
       {
         uint8_t report_item_info = report_map_data[0];
+        report_map_size--;
         report_map_data++;
         switch (report_item_info & HID_ITEM_SIZE_MASK)
         {
