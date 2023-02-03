@@ -6,8 +6,6 @@
 #include "hid_parser.h"
 
 #ifdef USE_ESP32
-#include <esp_gattc_api.h>
-#include <esp_hidh.h>
 
 namespace esphome {
 namespace ble_client_hid {
@@ -62,16 +60,15 @@ class BLEClientHID : public Component, public api::CustomAPIDevice, public ble_c
                            esp_ble_gattc_cb_param_t *param) override;
 
   void dump_config() override;
-  void hidh_event(esp_hidh_event_t event, esp_hidh_event_data_t *param);
   void schedule_read_char(ble_client::BLECharacteristic *characteristic);
   void on_gatt_read_finished(GATTReadData *data);
   void read_client_characteristics();
   float get_setup_priority() const override { return setup_priority::AFTER_BLUETOOTH; }
   void register_battery_sensor(sensor::Sensor * battery_sensor);
   void configure_hid_client();
-  void initialize_dev();
   
  protected:
+  void send_input_report_event(esp_ble_gattc_cb_param_t *p_data);
   HIDReportMap* hid_report_map;
   std::vector<ble_client::BLECharacteristic *> characteristics;
   std::vector<uint16_t> handles_registered_for_notify;
