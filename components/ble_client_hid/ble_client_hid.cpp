@@ -139,7 +139,6 @@ void BLEClientHID::gattc_event_handler(esp_gattc_cb_event_t event,
       ESP_LOGW(TAG, "[%s] Disconnected!",
                this->parent()->address_str().c_str());
       this->status_set_warning();
-      this->keycode_text_sensor->publish_state(EMPTY);
       break;
     }
     case ESP_GATTC_SEARCH_RES_EVT: {
@@ -158,7 +157,6 @@ void BLEClientHID::gattc_event_handler(esp_gattc_cb_event_t event,
                  this->parent()->address_str().c_str());
         this->hid_state = HIDState::NO_HID_SERVICE;
         this->status_set_warning();
-        this->keycode_text_sensor->publish_state(EMPTY);
         break;
       } 
       ESP_LOGD(TAG, "GATTC search finished with status code %d",
@@ -204,18 +202,8 @@ void BLEClientHID::gattc_event_handler(esp_gattc_cb_event_t event,
   }
 }
 
-void BLEClientHID::register_keypress_binary_sensor(
-    binary_sensor::BinarySensor *keypress_binary_sensor) {
-  this->keypress_binary_sensor = keypress_binary_sensor;
-}
-
 void BLEClientHID::register_battery_sensor(sensor::Sensor *battery_sensor) {
   this->battery_sensor = battery_sensor;
-}
-
-void BLEClientHID::register_keycode_text_sensor(
-    text_sensor::TextSensor *keycode_text_sensor) {
-  this->keycode_text_sensor = keycode_text_sensor;
 }
 
 void BLEClientHID::schedule_read_char(
