@@ -183,6 +183,10 @@ void BLEClientHID::send_input_report_event(esp_ble_gattc_cb_param_t *p_data){
   memcpy(data + 1, p_data->notify.value, p_data->notify.value_len);
   data[0] = this->handle_report_id[p_data->notify.handle];
   std::vector<HIDReportItemValue> hid_report_values = this->hid_report_map->parse(data);
+  if(hid_report_values.size() == 0){
+    delete[] data;
+    return;
+  }
   std::string event_data = "[";
   for(HIDReportItemValue value : hid_report_values){
     std::string usage;
@@ -197,7 +201,7 @@ void BLEClientHID::send_input_report_event(esp_ble_gattc_cb_param_t *p_data){
   event_data += "]";
   this->fire_homeassistant_event("hid_events", {{"events", event_data}});
   ESP_LOGI(TAG, "Send HID events to HomeAssistant: %s", event_data.c_str());
-  delete data;
+  delete[] data;
 }
 
 void BLEClientHID::register_battery_sensor(sensor::Sensor *battery_sensor) {
@@ -242,7 +246,7 @@ void BLEClientHID::configure_hid_client() {
     BLECharacteristic *battery_level_char =
         battery_service->get_characteristic(ESP_GATT_UUID_BATTERY_LEVEL);
     if (battery_level_char != nullptr &&
-        ((battery_level_char->properties & ESP_GATT_CHAR_PROP_BIT_READ) != 0)) {
+        ((battery_level_char->properties & ESP_GATT_CHAR_PROP_BIT_NOTIFY) != 0)) {
       this->battery_handle = battery_level_char->handle;
       auto status = esp_ble_gattc_register_for_notify(
             this->parent()->get_gattc_if(), this->parent()->get_remote_bda(),
