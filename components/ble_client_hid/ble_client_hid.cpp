@@ -199,7 +199,7 @@ void BLEClientHID::send_input_report_event(esp_ble_gattc_cb_param_t *p_data){
   }
   event_data.pop_back();
   event_data += "]";
-  this->fire_homeassistant_event("hid_events", {{"events", event_data}});
+  this->fire_homeassistant_event("esphome.hid_events", {{"events", event_data}});
   ESP_LOGI(TAG, "Send HID events to HomeAssistant: %s", event_data.c_str());
   delete[] data;
 }
