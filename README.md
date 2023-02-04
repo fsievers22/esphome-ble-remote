@@ -6,6 +6,14 @@ The `ble_client_hid` external component foor ESPHome can be used to capture hid 
 - Nvidia Shield-Fernbedienung (2019) 
 
 ## How to Use
+### Add as external component:
+See [External Components](https://esphome.io/components/external_components.html):
+```yaml
+external_components:
+  # use ble_client_hid from this master branch in GitHub
+  - source: github://fsievers22/esphome-ble-remote@master
+    components: [ ble_client_hid ]
+```
 ### Component:
 Multiple `ble_client_hid` components can be configured, but at max three. (See [BLE Client](https://esphome.io/components/ble_client.html) notes for more info).
 
@@ -83,7 +91,9 @@ esphome:
   name: example-ble-hid         
 
 external_components:
-  - source: components
+  # use ble_client_hid from this master branch in GitHub
+  - source: github://fsievers22/esphome-ble-remote@master
+    components: [ ble_client_hid ]
 
 # Enable logging
 logger:
