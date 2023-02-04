@@ -1,37 +1,117 @@
-# ESPHome custom text sensor for ble remote (FireTV-Stick remote)
-This custom component can be used to capture button presses of a  FireTV-Stick remote. (Maybe also works for other Bluetooth Low Energy HID devices, probably some modifications of the keymap necessary) 
+# ESPHome external component to read hid events from a ble client
+The `ble_client_hid` external component foor ESPHome can be used to capture hid events like key presses from a hid device connected via Bluetooth LE.
 
-Creates two sensors:
-- text sensor for the keycode
-- binary sensor for the key state (pressed/released)
-
-
-Based on the [esp-idf](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/get-started/index.html) frameworks [ble_hid_device_demo](https://github.com/espressif/esp-idf/tree/master/examples/bluetooth/bluedroid/ble/ble_hid_device_demo) example
+#### Tested working with:
+- FireTV Remote of [Fire TV Stick - 3rd Gen (2020)](https://developer.amazon.com/docs/fire-tv/device-specifications-fire-tv-streaming-media-player.html?v=ftvstickgen3)
+- Nvidia Shield-Fernbedienung (2019) 
 
 ## How to Use
-1. Download all files and extract into a folder
-2. Replace substitutions at the top of the `.yaml` file
-    ```yaml
-    substitutions:
-    board: az-delivery-devkit-v4 # Your esp32 board
+### Component:
+Multiple `ble_client_hid` components can be configured, but at max three. (See [BLE Client](https://esphome.io/components/ble_client.html) notes for more info).
 
-    # Wifi credentials
-    wifi_ssid: !secret wifi_ssid # Required to replace
-    wifi_password: !secret wifi_password # Required to replace
+The device has to use the `esp-idf` framework:
+```yaml
+esp32:
+  board: az-delivery-devkit-v4  #modify to fit your board
+  framework:                    #only works n esp-idf framework
+    type: esp-idf
+```
+Each `ble_client_hid` component requires a `ble_client`.
+```yaml
+esp32_ble_tracker:            
 
-    # OTA and API
-    ota_password: !secret ota_password # Required to replace
+ble_client:
+  - id: ble_client_1
+    mac_address: "FF:FF:20:00:0F:15"    #modify to fit your ble device
 
-    bluetooth_mac_address: "\"00:00:00:00:00:00\"" # Required to replace
-    ```
-    The Bluetooth MAC adress has to have the form of 6 hexadecimal digit pairs that are separated by colons.
-    
-    Examples of Bluetooth MAC Adresses:
-    - `0A:22:10:30:FA:F4`
-    - `FF:FF:FF:FF:FF:FF`
-    - `11:22:33:44:55:66`
+ble_client_hid:
+  - id: ble_client_hid_1
+    ble_client_id: ble_client_1
+```
+#### Configuration variables:
+- **id**(**Required**, ID): The ID to use for code generation, and for regerence by dependant components
+- **ble_client_id**(**Required**, ID): The ID of the `ble_client` component associated with this component
+#### Events:
+The component sends an event through the HomeAssistant Native API to HomeAssistant, when an hid event happens.
+The event is named `esphome.hid_events` and contains a string that contains the following JSON data:
+```json
+[
+    {
+        "usage": usage,
+        "value": value
+    },
+    {
+        "usage": usage,
+        "value": value
+    },
+    ...
+]
+```
+The usage is a string describing what the value can be used for like the keycode of a keyboard button.
 
-    To find the Bluetooth MAC Adress of a device follow for example the following [guide](https://www.techwalla.com/articles/how-do-i-find-a-bluetooth-address).
+### Battery sensor:
+The `ble_client_hid` sensor lets you track the battery level of the BLE HID client.
+```yaml
+esp32_ble_tracker:            
 
-3. Compile and upload with ESPHome
-4. After successful upload to an ESP32 board put your remote in pairing mode (press and hold home button on FireTV-Stick remote for 10 seconds) and the ESP32 should automatically pair and connect to your remote 
+ble_client:
+  - id: ble_client_1
+    mac_address: "48:B0:2D:52:29:C6"    #modify to fit your ble device
+
+ble_client_hid:
+  - id: ble_client_hid_1
+    ble_client_id: ble_client_1
+
+sensor:
+  - platform: ble_client_hid
+    ble_client_hid_id: ble_client_hid_1
+    name: "Battery"
+```
+#### Configuration variables:
+- **ble_client_hid_id**(**Required**, ID): The ID of the `ble_client_hid` component associated with this component
+- **id**(**Optional**, ID): Manuallyy specify the ID used for code generation
+- All other options from [Sensor](https://esphome.io/components/sensor/index.html)
+
+# Example device configuration:
+```yaml
+esp32:
+  board: az-delivery-devkit-v4  #modify to fit your board
+  framework:                    #only works n esp-idf framework
+    type: esp-idf
+
+esphome:
+  name: example-ble-hid         
+
+external_components:
+  - source: components
+
+# Enable logging
+logger:
+  level: INFO
+
+# Enable Home Assistant API
+api:
+
+ota:
+  password: !secret ota_password
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  fast_connect: on
+
+esp32_ble_tracker:            
+
+ble_client:
+  - id: ble_client_1
+    mac_address: "48:B0:2D:52:29:C6"    #modify to fit your ble device
+
+ble_client_hid:
+  - id: ble_client_hid_1
+    ble_client_id: ble_client_1
+
+sensor:
+  - platform: ble_client_hid
+    ble_client_hid_id: ble_client_hid_1
+    name: "Battery"
+```
