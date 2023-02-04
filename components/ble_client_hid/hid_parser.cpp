@@ -102,12 +102,14 @@ namespace esphome
       }
     }
 
-    static const HIDUsage parse_usage(uint32_t data, uint16_t usage_page)
+    static const HIDUsage parse_usage(uint8_t item_info, uint32_t data, uint16_t usage_page)
     {
-      if ((data & HID_ITEM_SIZE_MASK) == HID_ITEM_SIZE_32)
+      if ((item_info & HID_ITEM_SIZE_MASK) == HID_ITEM_SIZE_32)
       {
+        ESP_LOGD(TAG,"Parsing extedned usage: %X, %X", (uint16_t)(data >> 16), (uint16_t)data);
         return HIDUsage((uint16_t)data, (uint16_t)(data >> 16));
       }
+      ESP_LOGD(TAG,"Parsing simple usage: %X, %X", usage_page, (uint16_t)data);
       return HIDUsage((uint16_t)data, usage_page);
     }
 
@@ -123,6 +125,7 @@ namespace esphome
 
     const HIDUsage HIDUsageList::get_usage(uint16_t index) const
     {
+      ESP_LOGD(TAG, "get usage for index %d with list size %d", index, this->usages.size());
       if (index > this->usages.size())
       {
         ESP_LOGW(TAG, "Usage index out of range");
@@ -172,6 +175,7 @@ namespace esphome
 
         case HID_ITEM_TYPE_TAG_USAGE_PAGE:
         {
+          ESP_LOGD(TAG, "Usage page: %X", report_item_data);
           state_table.usage_page = report_item_data;
           break;
         }
@@ -228,19 +232,19 @@ namespace esphome
 
         case HID_ITEM_TYPE_TAG_USAGE:
         {
-          usages.push_back(parse_usage(report_item_data, state_table.usage_page));
+          usages.push_back(parse_usage(report_item_info, report_item_data, state_table.usage_page));
           break;
         }
 
         case HID_ITEM_TYPE_TAG_USAGE_MINIMUM:
         {
-          usage_range.minimum = parse_usage(report_item_data, state_table.usage_page);
+          usage_range.minimum = parse_usage(report_item_info, report_item_data, state_table.usage_page);
           break;
         }
 
         case HID_ITEM_TYPE_TAG_USAGE_MAXIMUM:
         {
-          usage_range.maximum = parse_usage(report_item_data, state_table.usage_page);
+          usage_range.maximum = parse_usage(report_item_info, report_item_data, state_table.usage_page);
           break;
         }
 
