@@ -44,13 +44,18 @@ wifi:
 esp32_ble_tracker:
 
 ble_client:
-  - id: ble_client_
+  - id: ble_client_1
     mac_address: "14:0A:C5:D0:D4:A2"
+  - id: ble_client_2
+    mac_address: "48:B0:2D:52:29:C6"
+
   #mac_address: "14:0A:C5:D0:D4:A2"
 
 ble_client_hid:
-  - id: ble_client_hid_
-    ble_client_id: ble_client_
+  - id: ble_client_hid_1
+    ble_client_id: ble_client_1
+  - id: ble_client_hid_2
+    ble_client_id: ble_client_2
 
 switch:
   - platform: restart
@@ -61,5 +66,5 @@ sensor:
     name: "WiFi Signal"
     update_interval: 60s
   - platform: ble_client_hid
-    ble_client_hid_id: ble_client_hid_
+    ble_client_hid_id: ble_client_hid_1
     name: "Battery"
