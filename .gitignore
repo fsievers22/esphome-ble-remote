@@ -7,7 +7,7 @@
 **/lib/
 **/src/
 **/platformio.ini
-/secrets.yaml
 /.vscode/
 **/__pycache__/
 .cache/
+/*.yaml
