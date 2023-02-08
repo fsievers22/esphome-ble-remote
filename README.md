@@ -38,22 +38,15 @@ ble_client_hid:
 ```
 #### Configuration variables:
 - **id**(**Required**, ID): The ID to use for code generation, and for regerence by dependant components
-- **ble_client_id**(**Required**, ID): The ID of the `ble_client` component associated with this component
+- **ble_client_id**(**Required**, ID): The ID of the `ble_client` component associated with this component can be omitted if only one `ble_client` is registered
 #### Events:
 The component sends an event through the HomeAssistant Native API to HomeAssistant, when an hid event happens.
-The event is named `esphome.hid_events` and contains a string that contains the following JSON data:
-```json
-[
-    {
-        "usage": usage,
-        "value": value
-    },
-    {
-        "usage": usage,
-        "value": value
-    },
-    ...
-]
+The event is named `esphome.hid_events` and contains the usage as a string and the value.
+Example:
+```yaml
+data:
+  usage: "KEYBOARD_EXAMPLE"
+  value: 1
 ```
 The usage is a string describing what the value can be used for like the keycode of a keyboard button.
 
@@ -76,9 +69,28 @@ sensor:
     name: "Battery"
 ```
 #### Configuration variables:
-- **ble_client_hid_id**(**Required**, ID): The ID of the `ble_client_hid` component associated with this component
+- **ble_client_hid_id**(**Required**, ID): The ID of the `ble_client_hid` component associated with this component, can be omitted if only one `ble_client_hid` is registered.
 - **id**(**Optional**, ID): Manuallyy specify the ID used for code generation
 - All other options from [Sensor](https://esphome.io/components/sensor/index.html)
+
+### last event sensors:
+The component can expose the last received event through a combination of a sensor and a text sensor.
+
+```yaml
+sensor:
+  - platform: ble_client_hid
+    type: last_event_value
+    name: "Last Event Value"
+
+text_sensor:
+  - platform: ble_client_hid
+    name: "Last Event Usage"
+```
+
+#### Configuration variables:
+- **ble_client_hid_id**(**Required**, ID): The ID of the `ble_client_hid` component associated with this component, can be omitted if only one `ble_client_hid` is registered.
+- **id**(**Optional**, ID): Manuallyy specify the ID used for code generation
+- All other options from [Sensor](https://esphome.io/components/sensor/index.html) or [TextSensor](https://esphome.io/components/text_sensor/index.html)
 
 # Example device configuration:
 ```yaml
@@ -122,6 +134,16 @@ ble_client_hid:
 
 sensor:
   - platform: ble_client_hid
+    type: battery
     ble_client_hid_id: ble_client_hid_1
     name: "Battery"
+  - platform: ble_client_hid
+    type: last_event_value
+    ble_client_hid_id: ble_client_hid_1
+    name: "Last Event Value"
+
+text_sensor:
+  - platform: ble_client_hid
+    ble_client_hid_id: ble_client_hid_1
+    name: "Last Event Usage"
 ```

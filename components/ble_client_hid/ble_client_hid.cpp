@@ -163,6 +163,9 @@ void BLEClientHID::gattc_event_handler(esp_gattc_cb_event_t event,
       if (param->notify.conn_id != this->parent()->get_conn_id()) break;
       if (p_data->notify.handle == this->battery_handle) {
         uint8_t battery_level = p_data->notify.value[0];
+        if(this->battery_sensor == nullptr){
+          break;
+        }
         this->battery_sensor->publish_state(battery_level);
       } else {
         // has to be hid report
@@ -187,7 +190,6 @@ void BLEClientHID::send_input_report_event(esp_ble_gattc_cb_param_t *p_data){
     delete[] data;
     return;
   }
-  std::string event_data = "[";
   for(HIDReportItemValue value : hid_report_values){
     std::string usage;
     if(USAGE_PAGES.count(value.usage.page) > 0 && USAGE_PAGES.at(value.usage.page).usages_.count(value.usage.usage) > 0){
@@ -195,17 +197,31 @@ void BLEClientHID::send_input_report_event(esp_ble_gattc_cb_param_t *p_data){
     } else {
       usage = std::to_string(value.usage.page) + "_" + std::to_string(value.usage.usage);
     }
-    event_data += ("{\"usage\":\"" + usage + "\",\"value\":" + std::to_string(value.value) + "},");
+    this->fire_homeassistant_event("esphome.hid_events", {{"usage", usage}, {"value", std::to_string(value.value)}});
+    if(this->last_event_usage_text_sensor != nullptr){
+      this->last_event_usage_text_sensor->publish_state(usage);
+    }
+    if(this->last_event_value_sensor != nullptr){
+      this->last_event_value_sensor->publish_state(value.value);
+    }
+    ESP_LOGD(TAG, "Send HID event to HomeAssistant: usage: %s, value: %d", usage.c_str(), value.value);
   }
-  event_data.pop_back();
-  event_data += "]";
-  this->fire_homeassistant_event("esphome.hid_events", {{"events", event_data}});
-  ESP_LOGI(TAG, "Send HID events to HomeAssistant: %s", event_data.c_str());
+  
   delete[] data;
+}
+
+void BLEClientHID::register_last_event_value_sensor(
+    sensor::Sensor *last_event_value_sensor) {
+  this->last_event_value_sensor = last_event_value_sensor;
 }
 
 void BLEClientHID::register_battery_sensor(sensor::Sensor *battery_sensor) {
   this->battery_sensor = battery_sensor;
+}
+
+void BLEClientHID::register_last_event_usage_text_sensor(
+    text_sensor::TextSensor *last_event_usage_text_sensor) {
+  this->last_event_usage_text_sensor = last_event_usage_text_sensor;
 }
 
 void BLEClientHID::schedule_read_char(

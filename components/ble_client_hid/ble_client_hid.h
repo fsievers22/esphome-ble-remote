@@ -64,6 +64,8 @@ class BLEClientHID : public Component, public api::CustomAPIDevice, public ble_c
   void on_gatt_read_finished(GATTReadData *data);
   void read_client_characteristics();
   float get_setup_priority() const override { return setup_priority::AFTER_BLUETOOTH; }
+  void register_last_event_usage_text_sensor(text_sensor::TextSensor *last_event_usage_text_sensor);
+  void register_last_event_value_sensor(sensor::Sensor *last_event_value_sensor);
   void register_battery_sensor(sensor::Sensor * battery_sensor);
   void configure_hid_client();
   
@@ -74,7 +76,9 @@ class BLEClientHID : public Component, public api::CustomAPIDevice, public ble_c
   std::vector<uint16_t> handles_registered_for_notify;
   std::map<uint16_t, GATTReadData *> handles_to_read;
   std::map<uint16_t, uint8_t> handle_report_id;
-  sensor::Sensor *battery_sensor;
+  text_sensor::TextSensor *last_event_usage_text_sensor = nullptr;
+  sensor::Sensor *last_event_value_sensor = nullptr;
+  sensor::Sensor *battery_sensor = nullptr;
   HIDState hid_state = HIDState::INIT;
   uint16_t battery_handle;
   uint16_t vendor_id;

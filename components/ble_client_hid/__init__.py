@@ -37,13 +37,13 @@ BLE_CLIENT_HID_SCHEMA = cv.Schema(
     }
 )
 
-async def register_keycode_text_sensor(var, config):
+async def register_last_event_usage_text_sensor(var, config):
     parent = await cg.get_variable(config[CONF_BLE_CLIENT_HID_ID])
-    cg.add(parent.register_keycode_text_sensor(var))
+    cg.add(parent.register_last_event_usage_text_sensor(var))
 
-async def register_keypress_binary_sensor(var, config):
+async def register_last_event_value_sensor(var, config):
     parent = await cg.get_variable(config[CONF_BLE_CLIENT_HID_ID])
-    cg.add(parent.register_keypress_binary_sensor(var))
+    cg.add(parent.register_last_event_value_sensor(var))
 
 async def register_battery_sensor(var, config):
     parent = await cg.get_variable(config[CONF_BLE_CLIENT_HID_ID])
