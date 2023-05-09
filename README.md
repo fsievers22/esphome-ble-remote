@@ -1,6 +1,6 @@
 # ESPHome external component to read hid events from a ble client
 The `ble_client_hid` external component foor ESPHome can be used to capture hid events like key presses from a hid device connected via Bluetooth LE.
-
+**Boards without internal PSRAM seem to be not compatible**
 #### Tested working with:
 - FireTV Remote of [Fire TV Stick - 3rd Gen (2020)](https://developer.amazon.com/docs/fire-tv/device-specifications-fire-tv-streaming-media-player.html?v=ftvstickgen3)
 - Nvidia Shield-Fernbedienung (2019) 
