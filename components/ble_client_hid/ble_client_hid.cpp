@@ -240,6 +240,16 @@ void BLEClientHID::schedule_read_char(
   ESP_LOGW(TAG, "characteristic not found");
 }
 
+uint8_t *BLEClientHID::parse_characteristic_data(ble_client::BLEService *service, uint16_t uuid){
+  using namespace ble_client;
+  BLECharacteristic *characteristic = service->get_characteristic(uuid);
+  if(characteristic == nullptr){
+    ESP_LOGD(TAG, "No characteristic with uuid %#X found on device");
+    return nullptr;  
+  }
+  return handles_to_read[characteristic->handle]->value_;
+}
+
 void BLEClientHID::configure_hid_client() {
   using namespace ble_client;
 
@@ -252,11 +262,12 @@ void BLEClientHID::configure_hid_client() {
   BLEService *generic_access_service = parent->get_service(0x1800);
 
   if (generic_access_service != nullptr) {
-    BLECharacteristic *device_name_char =
-        generic_access_service->get_characteristic(
-            ESP_GATT_UUID_GAP_DEVICE_NAME);
-    this->device_name =
-        (const char *)this->handles_to_read[device_name_char->handle]->value_;
+    uint8_t *t_device_name = this->parse_characteristic_data(generic_access_service, ESP_GATT_UUID_GAP_DEVICE_NAME);
+    if (t_device_name != nullptr){
+      this->device_name = (const char*) t_device_name;
+    } else{
+      this->device_name = "Generic";
+    }
   }
   if (battery_service != nullptr) {
     BLECharacteristic *battery_level_char =
@@ -284,25 +295,14 @@ void BLEClientHID::configure_hid_client() {
     delete this->handles_to_read[pnp_id_char->handle];
     this->handles_to_read.erase(pnp_id_char->handle);
 
-    BLECharacteristic *manufacturer_char =
-        device_info_service->get_characteristic(ESP_GATT_UUID_MANU_NAME);
-    uint8_t *t_manufacturer = nullptr;
-    if(manufacturer_char != nullptr){
-      t_manufacturer = this->handles_to_read[manufacturer_char->handle]->value_;
-    }
+    uint8_t *t_manufacturer = this->parse_characteristic_data(device_info_service, ESP_GATT_UUID_MANU_NAME);
     if(t_manufacturer != nullptr){
       this->manufacturer = (const char *) t_manufacturer;
     } else {
       this->manufacturer = "Generic";
     }
 
-    uint8_t *t_serial = nullptr;
-    BLECharacteristic *serial_number_char =
-        device_info_service->get_characteristic(
-            ESP_GATT_UUID_SERIAL_NUMBER_STR);
-    if(serial_number_char != nullptr){
-      t_serial = this->handles_to_read[serial_number_char->handle]->value_;
-    }
+    uint8_t *t_serial = this->parse_characteristic_data(device_info_service, ESP_GATT_UUID_SERIAL_NUMBER_STR);
     if(t_serial != nullptr){
       this->serial_number = (const char *) t_serial;
     } else {
