@@ -244,7 +244,7 @@ uint8_t *BLEClientHID::parse_characteristic_data(ble_client::BLEService *service
   using namespace ble_client;
   BLECharacteristic *characteristic = service->get_characteristic(uuid);
   if(characteristic == nullptr){
-    ESP_LOGD(TAG, "No characteristic with uuid %#X found on device");
+    ESP_LOGD(TAG, "No characteristic with uuid %#X found on device", uuid);
     return nullptr;  
   }
   return handles_to_read[characteristic->handle]->value_;
