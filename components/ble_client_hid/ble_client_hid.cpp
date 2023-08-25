@@ -235,9 +235,9 @@ void BLEClientHID::schedule_read_char(
     }
     this->handles_to_read.insert(
         std::make_pair(characteristic->handle, nullptr));
-  } else {
-    ESP_LOGW(TAG, "read_char failed");
-  }
+    return;
+  } 
+  ESP_LOGW(TAG, "characteristic not found");
 }
 
 void BLEClientHID::configure_hid_client() {
@@ -286,13 +286,28 @@ void BLEClientHID::configure_hid_client() {
 
     BLECharacteristic *manufacturer_char =
         device_info_service->get_characteristic(ESP_GATT_UUID_MANU_NAME);
-    this->manufacturer =
-        (const char *)this->handles_to_read[manufacturer_char->handle]->value_;
+    uint8_t *t_manufacturer = nullptr;
+    if(manufacturer_char != nullptr){
+      t_manufacturer = this->handles_to_read[manufacturer_char->handle]->value_;
+    }
+    if(t_manufacturer != nullptr){
+      this->manufacturer = (const char *) t_manufacturer;
+    } else {
+      this->manufacturer = "Generic";
+    }
+
+    uint8_t *t_serial = nullptr;
     BLECharacteristic *serial_number_char =
         device_info_service->get_characteristic(
             ESP_GATT_UUID_SERIAL_NUMBER_STR);
-    this->serial_number =
-        (const char *)this->handles_to_read[serial_number_char->handle]->value_;
+    if(serial_number_char != nullptr){
+      t_serial = this->handles_to_read[serial_number_char->handle]->value_;
+    }
+    if(t_serial != nullptr){
+      this->serial_number = (const char *) t_serial;
+    } else {
+      this->serial_number = "000000";
+    }
   }
   if (hid_service != nullptr) {
     BLECharacteristic *hid_report_map_char =
