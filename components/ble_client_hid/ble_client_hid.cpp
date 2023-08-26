@@ -247,7 +247,13 @@ uint8_t *BLEClientHID::parse_characteristic_data(ble_client::BLEService *service
     ESP_LOGD(TAG, "No characteristic with uuid %#X found on device", uuid);
     return nullptr;  
   }
-  return handles_to_read[characteristic->handle]->value_;
+  if (handles_to_read.count(characteristic->handle) >= 1){
+    ESP_LOGD(TAG, "Characteristic parsed for uuid %#X and handle %#X starts with %#X", uuid, characteristic->handle, *(handles_to_read[characteristic->handle]->value_));
+    return handles_to_read[characteristic->handle]->value_;
+  }
+  ESP_LOGD(TAG, "Characteristic with uuid %#X and handle %#X not stored in handles_to_read", uuid, characteristic->handle);
+  return nullptr;
+  
 }
 
 void BLEClientHID::configure_hid_client() {
