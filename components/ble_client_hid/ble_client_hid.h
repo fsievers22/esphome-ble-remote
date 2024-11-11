@@ -2,7 +2,9 @@
 #include "esphome/components/ble_client/ble_client.h"
 #include "esphome/components/esp32_ble_tracker/esp32_ble_tracker.h"
 #include "esphome/components/sensor/sensor.h"
+#ifdef USE_API
 #include "esphome/components/api/custom_api_device.h"
+#endif
 #include "hid_parser.h"
 
 #ifdef USE_ESP32
@@ -53,7 +55,11 @@ class GATTReadData {
     uint16_t handle_;
 };
 
+#ifdef USE_API
 class BLEClientHID : public Component, public api::CustomAPIDevice, public ble_client::BLEClientNode {
+#else
+class BLEClientHID : public Component, public ble_client::BLEClientNode {
+#endif
  public:
   void loop() override;
   void gattc_event_handler(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if,
