@@ -91,6 +91,7 @@ namespace esphome
       {
         delete usage_collection;
       };
+      size_t get_total_size();
       virtual std::vector<HIDReportItemValue> parse(uint8_t *hid_report_data) = 0;
       static int32_t parse_input_report_item(uint8_t *report_data, uint16_t bit_offset, uint16_t report_size, HIDLogicalRange logical_range);
       const uint8_t report_size; // in bits
