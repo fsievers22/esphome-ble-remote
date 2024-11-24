@@ -335,7 +335,7 @@ namespace esphome
     void HIDInputReport::push_back(HIDInputReportItem *item)
     {
       this->items.push_back(item);
-      this->report_size += item->report_size;
+      this->report_size += item->get_total_size();
     }
 
     std::vector<HIDReportItemValue> HIDReportMap::parse(uint8_t *hid_report_data)
@@ -368,6 +368,11 @@ namespace esphome
         }
       }
       return report_values;
+    }
+
+    size_t HIDInputReportItem::get_total_size()
+    {
+      return this->report_size * this->report_count;
     }
 
     int32_t HIDInputReportItem::parse_input_report_item(uint8_t *report_data, uint16_t bit_offset, uint16_t report_size, HIDLogicalRange logical_range)
