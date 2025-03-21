@@ -62,6 +62,7 @@ class BLEClientHID : public Component, public api::CustomAPIDevice, public ble_c
   void dump_config() override;
   void schedule_read_char(ble_client::BLECharacteristic *characteristic);
   void on_gatt_read_finished(GATTReadData *data);
+  void gap_event_handler(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *param) override;
   void read_client_characteristics();
   float get_setup_priority() const override { return setup_priority::AFTER_BLUETOOTH; }
   void register_last_event_usage_text_sensor(text_sensor::TextSensor *last_event_usage_text_sensor);
@@ -88,6 +89,7 @@ class BLEClientHID : public Component, public api::CustomAPIDevice, public ble_c
   std::string device_name;
   std::string manufacturer;
   std::string serial_number;
+  bool is_connected = false;
   
 };
 
