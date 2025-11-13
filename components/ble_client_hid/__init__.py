@@ -11,6 +11,8 @@ CODE_OWNERS=["@fsievers22"]
 
 MULTI_CONF=3
 
+CONF_PUBLISH_TO_HA = "publish_to_ha"
+
 ble_client_hid_ns = cg.esphome_ns.namespace("ble_client_hid")
 
 BLEClientHID = ble_client_hid_ns.class_(
@@ -22,7 +24,8 @@ BLEClientHID = ble_client_hid_ns.class_(
 CONFIG_SCHEMA = (
     cv.Schema(
         {
-            cv.GenerateID(): cv.declare_id(BLEClientHID)
+            cv.GenerateID(): cv.declare_id(BLEClientHID),
+            cv.Optional(CONF_PUBLISH_TO_HA, default=True): cv.boolean,
         }
     )
     .extend(cv.COMPONENT_SCHEMA)
@@ -53,3 +56,4 @@ async def to_code(config):
     var = cg.new_Pvariable(config[CONF_ID])
     await cg.register_component(var, config)
     await ble_client.register_ble_node(var, config)
+    cg.add(var.set_publish_to_ha(config[CONF_PUBLISH_TO_HA]))

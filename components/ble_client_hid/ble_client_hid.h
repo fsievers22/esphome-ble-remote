@@ -68,6 +68,7 @@ class BLEClientHID : public Component, public api::CustomAPIDevice, public ble_c
   void register_last_event_value_sensor(sensor::Sensor *last_event_value_sensor);
   void register_battery_sensor(sensor::Sensor * battery_sensor);
   void configure_hid_client();
+  void set_publish_to_ha(bool publish_to_ha) { this->publish_to_ha_ = publish_to_ha; }
   
  protected:
   void send_input_report_event(esp_ble_gattc_cb_param_t *p_data);
@@ -81,6 +82,7 @@ class BLEClientHID : public Component, public api::CustomAPIDevice, public ble_c
   sensor::Sensor *last_event_value_sensor = nullptr;
   sensor::Sensor *battery_sensor = nullptr;
   HIDState hid_state = HIDState::INIT;
+  bool publish_to_ha_ = true;
   uint16_t battery_handle;
   uint16_t vendor_id;
   uint16_t product_id;
