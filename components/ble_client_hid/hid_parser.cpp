@@ -118,7 +118,7 @@ namespace esphome
       if (index > this->usage_max.usage - this->usage_min.usage)
       {
         ESP_LOGW(TAG, "Usage index out of range");
-        return HIDUsage(0,0);
+        return HIDUsage(index,0);
       }
       return HIDUsage(this->usage_min.usage + index, this->usage_page);
     }
@@ -129,7 +129,7 @@ namespace esphome
       if (index > this->usages.size())
       {
         ESP_LOGW(TAG, "Usage index out of range");
-        return HIDUsage(0,0);;
+        return HIDUsage(index,0);;
       }
       return this->usages[index];
     }
