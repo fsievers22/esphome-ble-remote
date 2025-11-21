@@ -18,26 +18,16 @@ void BLEClientHID::loop() {
     case HIDState::BLE_CONNECTED:
       this->read_client_characteristics();  // not instant, finished when
                                             // hid_state = HIDState::READ_CHARS
+      
       this->hid_state = HIDState::READING_CHARS;
       break;
     case HIDState::READ_CHARS:
       this->configure_hid_client();  // instant
       this->hid_state = HIDState::CONFIGURED;
-      this->node_state = espbt::ClientState::ESTABLISHED;
+      this->node_state = esp32_ble_tracker::ClientState::ESTABLISHED;
       this->is_connected = true;
     default:
       break;
-  }
-  if (is_connected && xTaskGetTickCount() > last_run + pdMS_TO_TICKS(10000)) {
-    esp_gap_conn_params_t params;
-    last_run = xTaskGetTickCount();
-    esp_err_t ret = esp_ble_get_current_conn_params(
-        this->parent()->get_remote_bda(), &params);
-    if (ret != ESP_OK) {
-      ESP_LOGW(TAG, "Failed to get conn params");
-    }
-    ESP_LOGI(TAG, "conn params: interval=%u, latency=%u, timeout=%u",
-             params.interval, params.latency, params.timeout);
   }
 }
 
@@ -52,10 +42,9 @@ void BLEClientHID::gap_event_handler(esp_gap_ble_cb_event_t event,
    switch (event)
    {
    case ESP_GAP_BLE_UPDATE_CONN_PARAMS_EVT:
-    ESP_LOGI(TAG, "Update conn params");
+    ESP_LOGI(TAG, "Updated conn params to interval=%.2f ms, latency=%u, timeout=%.1f ms", param->update_conn_params.conn_int * 1.25f, param->update_conn_params.latency, param->update_conn_params.timeout * 10.f);
      /* code */
      break;
-   
    default:
      break;
    }
@@ -64,19 +53,20 @@ void BLEClientHID::gap_event_handler(esp_gap_ble_cb_event_t event,
 void BLEClientHID::read_client_characteristics() {
   ESP_LOGD(TAG, "Reading client characteristics");
   using namespace ble_client;
-
-  BLEClient *parent = this->parent();
   BLEService *battery_service =
-      parent->get_service(ESP_GATT_UUID_BATTERY_SERVICE_SVC);
+      this->parent()->get_service(ESP_GATT_UUID_BATTERY_SERVICE_SVC);
   BLEService *device_info_service =
-      parent->get_service(ESP_GATT_UUID_DEVICE_INFO_SVC);
-  BLEService *hid_service = parent->get_service(ESP_GATT_UUID_HID_SVC);
-  BLEService *generic_access_service = parent->get_service(0x1800);
+      this->parent()->get_service(ESP_GATT_UUID_DEVICE_INFO_SVC);
+
+  BLEService *hid_service = this->parent()->get_service(ESP_GATT_UUID_HID_SVC);
+  BLEService *generic_access_service = this->parent()->get_service(0x1800);
 
   if (generic_access_service != nullptr) {
     BLECharacteristic *device_name_char =
         generic_access_service->get_characteristic(
             ESP_GATT_UUID_GAP_DEVICE_NAME);
+    BLECharacteristic *pref_conn_params_char = generic_access_service->get_characteristic(ESP_GATT_UUID_GAP_PREF_CONN_PARAM);
+    this->schedule_read_char(pref_conn_params_char);
     this->schedule_read_char(device_name_char);
   }
   if (device_info_service != nullptr) {
@@ -106,7 +96,7 @@ void BLEClientHID::read_client_characteristics() {
           chr->get_descriptor(ESP_GATT_UUID_RPT_REF_DESCR);
       if (rpt_ref_desc != nullptr) {
         if (esp_ble_gattc_read_char_descr(
-                parent->get_gattc_if(), parent->get_conn_id(),
+                this->parent()->get_gattc_if(), this->parent()->get_conn_id(),
                 rpt_ref_desc->handle, ESP_GATT_AUTH_REQ_NO_MITM) != ESP_OK) {
           ESP_LOGW(TAG, "scheduling reading of RPT_REF_DESCR failed.");
         }
@@ -157,7 +147,7 @@ void BLEClientHID::gattc_event_handler(esp_gattc_cb_event_t event,
     case ESP_GATTC_DISCONNECT_EVT: {
       ESP_LOGW(TAG, "[%s] Disconnected!",
                this->parent()->address_str().c_str());
-      this->status_set_warning();
+      this->status_set_warning("Diconnected");
       break;
     }
     case ESP_GATTC_SEARCH_RES_EVT: {
@@ -175,7 +165,7 @@ void BLEClientHID::gattc_event_handler(esp_gattc_cb_event_t event,
         ESP_LOGW(TAG, "No GATT HID service found on device %s",
                  this->parent()->address_str().c_str());
         this->hid_state = HIDState::NO_HID_SERVICE;
-        this->status_set_warning();
+        this->status_set_warning("Invalid device config");
         break;
       }
       ESP_LOGD(TAG, "GATTC search finished with status code %d",
@@ -254,7 +244,7 @@ void BLEClientHID::send_input_report_event(esp_ble_gattc_cb_param_t *p_data) {
     if (this->last_event_value_sensor != nullptr) {
       this->last_event_value_sensor->publish_state(value.value);
     }
-    ESP_LOGD(TAG, "Send HID event to HomeAssistant: usage: %s, value: %d",
+    ESP_LOGI(TAG, "Send HID event to HomeAssistant: usage: %s, value: %d",
              usage.c_str(), value.value);
   }
 
@@ -316,14 +306,12 @@ uint8_t *BLEClientHID::parse_characteristic_data(
 
 void BLEClientHID::configure_hid_client() {
   using namespace ble_client;
-
-  BLEClient *parent = this->parent();
   BLEService *battery_service =
-      parent->get_service(ESP_GATT_UUID_BATTERY_SERVICE_SVC);
+      this->parent()->get_service(ESP_GATT_UUID_BATTERY_SERVICE_SVC);
   BLEService *device_info_service =
-      parent->get_service(ESP_GATT_UUID_DEVICE_INFO_SVC);
-  BLEService *hid_service = parent->get_service(ESP_GATT_UUID_HID_SVC);
-  BLEService *generic_access_service = parent->get_service(0x1800);
+      this->parent()->get_service(ESP_GATT_UUID_DEVICE_INFO_SVC);
+  BLEService *hid_service = this->parent()->get_service(ESP_GATT_UUID_HID_SVC);
+  BLEService *generic_access_service = this->parent()->get_service(0x1800);
 
   if (generic_access_service != nullptr) {
     uint8_t *t_device_name = this->parse_characteristic_data(
@@ -410,6 +398,20 @@ void BLEClientHID::configure_hid_client() {
                    this->handles_to_read[rpt_ref_desc->handle]->value_[0]);
         }
       }
+    }
+  }
+  if(generic_access_service != nullptr){
+    uint8_t *t_conn_params = this->parse_characteristic_data(generic_access_service, ESP_GATT_UUID_GAP_PREF_CONN_PARAM);
+    if(t_conn_params != nullptr){
+      esp_ble_conn_update_params_t preferred_conn_params = {
+        .min_int = t_conn_params[0] | (t_conn_params[1] << 8),
+        .max_int = t_conn_params[2] | (t_conn_params[3] << 8),
+        .latency = t_conn_params[4] | (t_conn_params[5] << 8),
+        .timeout = t_conn_params[6] | (t_conn_params[7] << 8)
+      };
+      memcpy(preferred_conn_params.bda, this->parent()->get_remote_bda(), 6);
+      ESP_LOGI(TAG, "Got preferred connection paramters: interval: %.2f - %.2f ms, latency: %u, timeout: %.1f ms", preferred_conn_params.min_int * 1.25f, preferred_conn_params.max_int * 1.25f, preferred_conn_params.latency, preferred_conn_params.timeout*10.f);
+      esp_ble_gap_update_conn_params(&preferred_conn_params);
     }
   }
   // delete read data:
