@@ -7,6 +7,7 @@ from esphome.const import CONF_ID
 
 
 DEPENDENCIES = ['ble_client']
+AUTO_LOAD = ["sensor", "text_sensor"]
 CODE_OWNERS=["@fsievers22"]
 
 MULTI_CONF=3
