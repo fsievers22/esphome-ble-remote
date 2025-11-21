@@ -28,12 +28,15 @@ enum class HIDState {
   READ_CHARS,
   // Configure ble client with read chars e. g. register fr notify
   CONFIGURING,
-  // Finished configuring e. g. notify registered
+
+  NOTIFICATIONS_REGISTERING,
+
+  NOTIFICATIONS_REGISTERED,
+
+  CONN_PARAMS_UPDATING,
+
   CONFIGURED,
-  // HID opened
-  OPENED,
-  // HID closed
-  CLOSED,
+  
 };
 
 class GATTReadData {
@@ -90,7 +93,8 @@ class BLEClientHID : public Component, public api::CustomAPIDevice, public ble_c
   std::string manufacturer;
   std::string serial_number;
   bool is_connected = false;
-  
+  uint8_t handles_waiting_for_notify_registration = 0;
+  esp_ble_conn_update_params_t preferred_conn_params = {0};
 };
 
 }  // namespace ble_client_hid

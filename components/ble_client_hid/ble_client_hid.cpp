@@ -18,14 +18,14 @@ void BLEClientHID::loop() {
     case HIDState::BLE_CONNECTED:
       this->read_client_characteristics();  // not instant, finished when
                                             // hid_state = HIDState::READ_CHARS
-      
       this->hid_state = HIDState::READING_CHARS;
       break;
     case HIDState::READ_CHARS:
-      this->configure_hid_client();  // instant
-      this->hid_state = HIDState::CONFIGURED;
-      this->node_state = esp32_ble_tracker::ClientState::ESTABLISHED;
-      this->is_connected = true;
+      this->configure_hid_client();
+      this->hid_state = HIDState::NOTIFICATIONS_REGISTERING;
+    case HIDState::NOTIFICATIONS_REGISTERED:
+      esp_ble_gap_update_conn_params(&this->preferred_conn_params);
+      this->hid_state = HIDState::CONN_PARAMS_UPDATING;
     default:
       break;
   }
@@ -43,7 +43,9 @@ void BLEClientHID::gap_event_handler(esp_gap_ble_cb_event_t event,
    {
    case ESP_GAP_BLE_UPDATE_CONN_PARAMS_EVT:
     ESP_LOGI(TAG, "Updated conn params to interval=%.2f ms, latency=%u, timeout=%.1f ms", param->update_conn_params.conn_int * 1.25f, param->update_conn_params.latency, param->update_conn_params.timeout * 10.f);
-     /* code */
+    this->hid_state = HIDState::CONFIGURED;
+    this->node_state = espbt::ClientState::ESTABLISHED;
+    /* code */
      break;
    default:
      break;
@@ -208,6 +210,14 @@ void BLEClientHID::gattc_event_handler(esp_gattc_cb_event_t event,
       }
       break;
     }
+    case ESP_GATTC_REG_FOR_NOTIFY_EVT: {
+      if (param->notify.conn_id != this->parent()->get_conn_id()) break;
+      this->handles_waiting_for_notify_registration--;
+      if(this->handles_waiting_for_notify_registration == 0){
+        this->hid_state = HIDState::NOTIFICATIONS_REGISTERED;
+      }
+      break;
+    }
     default: {
       break;
     }
@@ -332,9 +342,12 @@ void BLEClientHID::configure_hid_client() {
       auto status = esp_ble_gattc_register_for_notify(
           this->parent()->get_gattc_if(), this->parent()->get_remote_bda(),
           battery_level_char->handle);
+      
       if (status != ESP_OK) {
         ESP_LOGW(TAG, "Register for notify failed for handle %d with status=%d",
                  battery_level_char->handle, status);
+      } else {
+        this->handles_waiting_for_notify_registration++;
       }
     }
   }
@@ -386,6 +399,8 @@ void BLEClientHID::configure_hid_client() {
             ESP_LOGW(TAG,
                      "Register for notify failed for handle %d with status=%d",
                      hid_char->handle, status);
+          } else {
+            this->handles_waiting_for_notify_registration++;
           }
         }
         BLEDescriptor *rpt_ref_desc =
@@ -403,15 +418,12 @@ void BLEClientHID::configure_hid_client() {
   if(generic_access_service != nullptr){
     uint8_t *t_conn_params = this->parse_characteristic_data(generic_access_service, ESP_GATT_UUID_GAP_PREF_CONN_PARAM);
     if(t_conn_params != nullptr){
-      esp_ble_conn_update_params_t preferred_conn_params = {
-        .min_int = t_conn_params[0] | (t_conn_params[1] << 8),
-        .max_int = t_conn_params[2] | (t_conn_params[3] << 8),
-        .latency = t_conn_params[4] | (t_conn_params[5] << 8),
-        .timeout = t_conn_params[6] | (t_conn_params[7] << 8)
-      };
-      memcpy(preferred_conn_params.bda, this->parent()->get_remote_bda(), 6);
+      this->preferred_conn_params.min_int = t_conn_params[0] | (t_conn_params[1] << 8);
+      this->preferred_conn_params.max_int = t_conn_params[2] | (t_conn_params[3] << 8);
+      this->preferred_conn_params.latency = t_conn_params[4] | (t_conn_params[5] << 8);
+      this->preferred_conn_params.timeout = t_conn_params[6] | (t_conn_params[7] << 8);
+      memcpy(this->preferred_conn_params.bda, this->parent()->get_remote_bda(), 6);
       ESP_LOGI(TAG, "Got preferred connection paramters: interval: %.2f - %.2f ms, latency: %u, timeout: %.1f ms", preferred_conn_params.min_int * 1.25f, preferred_conn_params.max_int * 1.25f, preferred_conn_params.latency, preferred_conn_params.timeout*10.f);
-      esp_ble_gap_update_conn_params(&preferred_conn_params);
     }
   }
   // delete read data:
