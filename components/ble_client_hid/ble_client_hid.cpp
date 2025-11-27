@@ -29,7 +29,7 @@ void BLEClientHID::loop() {
 void BLEClientHID::dump_config() {
   ESP_LOGCONFIG(TAG, "BLE Client HID:");
   ESP_LOGCONFIG(TAG, "  MAC address        : %s",
-                this->parent()->address_str().c_str());
+                this->parent()->address_str());
 }
 
 void BLEClientHID::read_client_characteristics() {
@@ -113,13 +113,13 @@ void BLEClientHID::gattc_event_handler(esp_gattc_cb_event_t event,
       if (ret) {
         ESP_LOGE(TAG, "[%d] [%s] esp_ble_set_encryption error, status=%d",
                  this->parent()->get_connection_index(),
-                 this->parent()->address_str().c_str(), ret);
+                 this->parent()->address_str(), ret);
       }
       break;
     }
     case ESP_GATTC_DISCONNECT_EVT: {
       ESP_LOGW(TAG, "[%s] Disconnected!",
-               this->parent()->address_str().c_str());
+               this->parent()->address_str());
       this->status_set_warning();
       break;
     }
@@ -128,7 +128,7 @@ void BLEClientHID::gattc_event_handler(esp_gattc_cb_event_t event,
           ESP_GATT_UUID_HID_SVC) {
         this->hid_state = HIDState::HID_SERVICE_FOUND;
         ESP_LOGD(TAG, "GATT HID service found on device %s",
-                 this->parent()->address_str().c_str());
+                 this->parent()->address_str());
       }
       break;
     }
@@ -136,7 +136,7 @@ void BLEClientHID::gattc_event_handler(esp_gattc_cb_event_t event,
       if (this->hid_state != HIDState::HID_SERVICE_FOUND) {
         // service not found
         ESP_LOGW(TAG, "No GATT HID service found on device %s",
-                 this->parent()->address_str().c_str());
+                 this->parent()->address_str());
         this->hid_state = HIDState::NO_HID_SERVICE;
         this->status_set_warning();
         break;
