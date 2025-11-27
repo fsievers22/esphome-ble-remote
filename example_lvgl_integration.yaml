@@ -1,0 +1,211 @@
+# ESPHome BLE HID Remote with LVGL Keypad Integration Example
+# This example shows how to:
+# 1. Connect to a BLE HID device (FireTV remote)
+# 2. Process button events locally without sending to HomeAssistant
+# 3. Use template binary sensors to represent button states
+# 4. Integrate with LVGL keypad for UI control
+
+esphome:
+  name: ble-remote-lvgl
+  platform: esp32
+  board: esp32-s3-devkitc-1
+
+# Enable ESP32 BLE
+esp32_ble_tracker:
+
+# BLE Client component
+ble_client:
+  - mac_address: 47:54:41:F7:61:08  # Your FireTV remote MAC address
+    id: firetv_remote
+
+# BLE HID Client - set publish_to_ha: false to process events locally only
+ble_client_hid:
+  - id: firetv_hid
+    ble_client_id: firetv_remote
+    publish_to_ha: false  # Events stay local, not sent to HomeAssistant
+
+# Sensors for monitoring
+sensor:
+  # Battery level sensor
+  - platform: ble_client_hid
+    ble_client_hid_id: firetv_hid
+    type: battery
+    name: "Remote Battery"
+
+  # Last event value sensor - use this to trigger template binary sensors
+  - platform: ble_client_hid
+    ble_client_hid_id: firetv_hid
+    type: last_event_value
+    name: "Last Event Value"
+    id: last_event_value
+    internal: true  # Hide from HA since we're processing locally
+
+# Text sensor for event names
+text_sensor:
+  - platform: ble_client_hid
+    ble_client_hid_id: firetv_hid
+    type: last_event_usage
+    name: "Last Event Usage"
+    id: last_event_usage
+    internal: true  # Hide from HA since we're processing locally
+    on_value:
+      then:
+        - lambda: |-
+            // Get the current event name and value
+            std::string usage = x;
+            float value = id(last_event_value).state;
+
+            // Map usage to template binary sensor
+            // Pressed = value 1, Released = value 0
+            bool pressed = (value == 1);
+
+            ESP_LOGD("remote", "HID Event: %s = %.0f", usage.c_str(), value);
+
+            if (usage == "Keyboard UpArrow") {
+              id(remote_up).publish_state(pressed);
+            }
+            else if (usage == "Keyboard DownArrow") {
+              id(remote_down).publish_state(pressed);
+            }
+            else if (usage == "Keyboard LeftArrow") {
+              id(remote_left).publish_state(pressed);
+            }
+            else if (usage == "Keyboard RightArrow") {
+              id(remote_right).publish_state(pressed);
+            }
+            else if (usage == "Keyboard ReturnEnter") {
+              id(remote_select).publish_state(pressed);
+            }
+            else if (usage == "Consumer ACBack") {
+              id(remote_back).publish_state(pressed);
+            }
+            else if (usage == "Consumer ACHome") {
+              id(remote_home).publish_state(pressed);
+            }
+            else if (usage == "Consumer Menu" || usage == "Keyboard Application") {
+              id(remote_menu).publish_state(pressed);
+            }
+            else if (usage == "Consumer PlayPause") {
+              id(remote_play_pause).publish_state(pressed);
+            }
+            else if (usage == "Consumer Rewind") {
+              id(remote_rewind).publish_state(pressed);
+            }
+            else if (usage == "Consumer FastForward") {
+              id(remote_ff).publish_state(pressed);
+            }
+
+# Template binary sensors for each button
+# These publish to the corresponding template binary sensor when pressed
+binary_sensor:
+  # Up Arrow
+  - platform: template
+    name: "Remote Up"
+    id: remote_up
+
+  # Down Arrow
+  - platform: template
+    name: "Remote Down"
+    id: remote_down
+
+  # Left Arrow
+  - platform: template
+    name: "Remote Left"
+    id: remote_left
+
+  # Right Arrow
+  - platform: template
+    name: "Remote Right"
+    id: remote_right
+
+  # Select/OK button
+  - platform: template
+    name: "Remote Select"
+    id: remote_select
+
+  # Back button
+  - platform: template
+    name: "Remote Back"
+    id: remote_back
+
+  # Home button
+  - platform: template
+    name: "Remote Home"
+    id: remote_home
+
+  # Menu button
+  - platform: template
+    name: "Remote Menu"
+    id: remote_menu
+
+  # Play/Pause
+  - platform: template
+    name: "Remote Play Pause"
+    id: remote_play_pause
+
+  # Rewind
+  - platform: template
+    name: "Remote Rewind"
+    id: remote_rewind
+
+  # Fast Forward
+  - platform: template
+    name: "Remote FF"
+    id: remote_ff
+
+# LVGL Configuration Example
+# You'll need to have LVGL display configured first
+# This shows how to create a keypad using the template binary sensors
+
+# Uncomment and configure this section once you have LVGL display working:
+#
+# lvgl:
+#   displays:
+#     - display_id: my_display  # Your display ID
+#
+#   # Create a keypad input device using the template binary sensors
+#   keypads:
+#     - id: remote_keypad
+#       keys:
+#         - key: LV_KEY_UP
+#           binary_sensor: remote_up
+#         - key: LV_KEY_DOWN
+#           binary_sensor: remote_down
+#         - key: LV_KEY_LEFT
+#           binary_sensor: remote_left
+#         - key: LV_KEY_RIGHT
+#           binary_sensor: remote_right
+#         - key: LV_KEY_ENTER
+#           binary_sensor: remote_select
+#         - key: LV_KEY_ESC
+#           binary_sensor: remote_back
+#         - key: LV_KEY_HOME
+#           binary_sensor: remote_home
+#         - key: LV_KEY_BACKSPACE
+#           binary_sensor: remote_menu
+#
+#   # Example: Create a simple menu that responds to the remote
+#   widgets:
+#     - obj:
+#         id: main_screen
+#         widgets:
+#           - label:
+#               text: "Use Remote to Navigate"
+#               align: CENTER
+#
+#           # Example list that can be navigated with the keypad
+#           - list:
+#               id: my_list
+#               align: CENTER
+#               width: 200
+#               height: 300
+#               widgets:
+#                 - btn:
+#                     text: "Option 1"
+#                 - btn:
+#                     text: "Option 2"
+#                 - btn:
+#                     text: "Option 3"
+
+logger:
+  level: DEBUG
