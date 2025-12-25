@@ -3,7 +3,8 @@ The `ble_client_hid` external component foor ESPHome can be used to capture hid 
 **Boards without internal PSRAM seem to be not compatible**
 #### Tested working with:
 - FireTV Remote of [Fire TV Stick - 3rd Gen (2020)](https://developer.amazon.com/docs/fire-tv/device-specifications-fire-tv-streaming-media-player.html?v=ftvstickgen3)
-- Nvidia Shield-Fernbedienung (2019) 
+- Nvidia Shield-Fernbedienung (2019)
+- Ruwido Model 827A (Virgin Telco 4k Spain): [Manual](https://fcc.report/FCC-ID/XYN827A)
 
 ## How to Use
 ### Add as external component:
@@ -65,6 +66,7 @@ ble_client_hid:
 
 sensor:
   - platform: ble_client_hid
+    type: battery
     ble_client_hid_id: ble_client_hid_1
     name: "Battery"
 ```
