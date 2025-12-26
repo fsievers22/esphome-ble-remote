@@ -77,6 +77,7 @@ class BLEClientHID : public Component, public ble_client::BLEClientNode {
   void read_client_characteristics();
   float get_setup_priority() const override { return setup_priority::AFTER_BLUETOOTH; }
   void register_last_event_usage_text_sensor(text_sensor::TextSensor *last_event_usage_text_sensor);
+  void register_last_event_code_text_sensor(text_sensor::TextSensor *last_event_code_text_sensor);
   void register_last_event_value_sensor(sensor::Sensor *last_event_value_sensor);
   void register_battery_sensor(sensor::Sensor * battery_sensor);
   void configure_hid_client();
@@ -90,6 +91,7 @@ class BLEClientHID : public Component, public ble_client::BLEClientNode {
   std::map<uint16_t, GATTReadData *> handles_to_read;
   std::map<uint16_t, uint8_t> handle_report_id;
   text_sensor::TextSensor *last_event_usage_text_sensor = nullptr;
+  text_sensor::TextSensor *last_event_code_text_sensor = nullptr;
   sensor::Sensor *last_event_value_sensor = nullptr;
   sensor::Sensor *battery_sensor = nullptr;
   HIDState hid_state = HIDState::INIT;
