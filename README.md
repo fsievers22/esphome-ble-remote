@@ -76,7 +76,7 @@ sensor:
 - All other options from [Sensor](https://esphome.io/components/sensor/index.html)
 
 ### last event sensors:
-The component can expose the last received event through a combination of a sensor and a text sensor.
+The component can expose the last received event through a combination of sensors and text sensors.
 
 ```yaml
 sensor:
@@ -86,12 +86,21 @@ sensor:
 
 text_sensor:
   - platform: ble_client_hid
+    type: last_event_usage
     name: "Last Event Usage"
+  - platform: ble_client_hid
+    type: last_event_code
+    name: "Last Event Code"
 ```
 
+#### Text sensor types:
+- **last_event_usage**: The human-readable usage name (e.g., `CONSUMER_VOLUME_UP`, `KEYBOARD_A`)
+- **last_event_code**: The raw HID usage code in `{page}_{usage}` format (e.g., `12_233` for Consumer Page usage 233)
+
 #### Configuration variables:
+- **type**(**Required**, string): The type of text sensor. Either `last_event_usage` or `last_event_code`.
 - **ble_client_hid_id**(**Required**, ID): The ID of the `ble_client_hid` component associated with this component, can be omitted if only one `ble_client_hid` is registered.
-- **id**(**Optional**, ID): Manuallyy specify the ID used for code generation
+- **id**(**Optional**, ID): Manually specify the ID used for code generation
 - All other options from [Sensor](https://esphome.io/components/sensor/index.html) or [TextSensor](https://esphome.io/components/text_sensor/index.html)
 
 # Example device configuration:
@@ -146,6 +155,11 @@ sensor:
 
 text_sensor:
   - platform: ble_client_hid
+    type: last_event_usage
     ble_client_hid_id: ble_client_hid_1
     name: "Last Event Usage"
+  - platform: ble_client_hid
+    type: last_event_code
+    ble_client_hid_id: ble_client_hid_1
+    name: "Last Event Code"
 ```

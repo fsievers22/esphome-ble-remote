@@ -252,6 +252,11 @@ void BLEClientHID::send_input_report_event(esp_ble_gattc_cb_param_t *p_data) {
     if(this->last_event_usage_text_sensor != nullptr){
       this->last_event_usage_text_sensor->publish_state(usage);
     }
+    if(this->last_event_code_text_sensor != nullptr){
+      std::string event_code = std::to_string(value.usage.page) + "_" +
+                               std::to_string(value.usage.usage);
+      this->last_event_code_text_sensor->publish_state(event_code);
+    }
     if (this->last_event_value_sensor != nullptr) {
       this->last_event_value_sensor->publish_state(value.value);
     }
@@ -274,6 +279,11 @@ void BLEClientHID::register_battery_sensor(sensor::Sensor *battery_sensor) {
 void BLEClientHID::register_last_event_usage_text_sensor(
     text_sensor::TextSensor *last_event_usage_text_sensor) {
   this->last_event_usage_text_sensor = last_event_usage_text_sensor;
+}
+
+void BLEClientHID::register_last_event_code_text_sensor(
+    text_sensor::TextSensor *last_event_code_text_sensor) {
+  this->last_event_code_text_sensor = last_event_code_text_sensor;
 }
 
 void BLEClientHID::schedule_read_char(
